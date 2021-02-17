@@ -5,6 +5,12 @@ project(dbus-task
   LANGUAGES CXX
 )
 
+#==============================================================================
+# DEPENDENCIES
+#
+
+find_package(sdbus-c++ REQUIRED)
+
 include(AICxxProject)
 
 #==============================================================================
@@ -49,3 +55,11 @@ target_link_libraries(dbus-task_ObjLib
 
 # Create an ALIAS target.
 add_library(AICxx::dbus-task ALIAS dbus-task_ObjLib)
+
+add_executable(server_side_concatenate_test server_side_concatenate_test.cxx)
+target_compile_features(server_side_concatenate_test PUBLIC cxx_std_17)
+target_link_libraries(server_side_concatenate_test PRIVATE SDBusCpp::sdbus-c++)
+
+add_executable(client_side_concatenate_test client_side_concatenate_test.cxx)
+target_compile_features(client_side_concatenate_test PUBLIC cxx_std_17)
+target_link_libraries(client_side_concatenate_test PRIVATE SDBusCpp::sdbus-c++)
