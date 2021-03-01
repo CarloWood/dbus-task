@@ -5,8 +5,8 @@ SUBDIRS =
 noinst_LTLIBRARIES = libdbustask.la
 
 SOURCES = \
-	DBusClient.h \
-	DBusClient.cxx
+	Client.h \
+	Client.cxx
 
 libdbustask_la_SOURCES = ${SOURCES}
 libdbustask_la_CXXFLAGS = @LIBCWD_R_FLAGS@

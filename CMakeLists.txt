@@ -9,7 +9,8 @@ project(dbus-task
 # DEPENDENCIES
 #
 
-find_package(sdbus-c++ REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(Libsystemd libsystemd REQUIRED IMPORTED_TARGET)
 
 include(AICxxProject)
 
@@ -29,8 +30,12 @@ set_property(
 # The list of source files.
 target_sources(dbus-task_ObjLib
   PRIVATE
-    "DBusClient.cxx"
-    "DBusClient.h"
+    "Connection.cxx"
+    "Connection.h"
+    "Client.cxx"
+    "Client.h"
+    "Error.cxx"
+    "Error.h"
 )
 
 # Required include search-paths.
@@ -38,6 +43,7 @@ get_target_property(CWDS_INTERFACE_INCLUDE_DIRECTORIES AICxx::cwds INTERFACE_INC
 target_include_directories(dbus-task_ObjLib
   PUBLIC
     "${CWDS_INTERFACE_INCLUDE_DIRECTORIES}" # For sys.h and debug.h.
+    "${Libsystemd_INCLUDE_DIRS}"
 )
 
 # Require support for C++17.
@@ -48,18 +54,18 @@ target_compile_features(dbus-task_ObjLib
 # Set link dependencies.
 target_link_libraries(dbus-task_ObjLib
   PUBLIC
-    AICxx::socket-task
+    AICxx::statefultask
   PRIVATE
-    farmhash::farmhash
+    PkgConfig::Libsystemd
 )
 
 # Create an ALIAS target.
 add_library(AICxx::dbus-task ALIAS dbus-task_ObjLib)
 
-add_executable(server_side_concatenate_test server_side_concatenate_test.cxx)
-target_compile_features(server_side_concatenate_test PUBLIC cxx_std_17)
-target_link_libraries(server_side_concatenate_test PRIVATE SDBusCpp::sdbus-c++)
+#add_executable(server_side_concatenate_test server_side_concatenate_test.cxx)
+#target_compile_features(server_side_concatenate_test PUBLIC cxx_std_17)
+#target_link_libraries(server_side_concatenate_test PRIVATE -lsdbus-c++ -lsystemd)
 
 add_executable(client_side_concatenate_test client_side_concatenate_test.cxx)
 target_compile_features(client_side_concatenate_test PUBLIC cxx_std_17)
-target_link_libraries(client_side_concatenate_test PRIVATE SDBusCpp::sdbus-c++)
+target_link_libraries(client_side_concatenate_test PRIVATE AICxx::resolver-task farmhash::farmhash dns::dns AICxx::dbus-task ${AICXX_OBJECTS_LIST})

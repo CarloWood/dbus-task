@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 
 // Yeah, global variable is ugly, but this is just an example and we want to access
 // the concatenator instance from within the concatenate method handler to be able
@@ -20,6 +21,8 @@ void concatenate(sdbus::MethodCall call)
 
   // Return error if there are no numbers in the collection
   if (numbers.empty()) throw sdbus::Error("org.sdbuscpp.Concatenator.Error", "No numbers provided");
+
+  std::this_thread::sleep_for(std::chrono::seconds(10));
 
   std::string result;
   for (auto number : numbers) { result += (result.empty() ? std::string() : separator) + std::to_string(number); }
