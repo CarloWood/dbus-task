@@ -189,18 +189,22 @@ int main(int argc, char* argv[])
   // Main application begin.
   try
   {
-    std::error_code ec1 = dbus::errors::System::Error::SE_ENOTSUP;
-    std::error_code ec2 = dbus::errors::org::sdbuscpp::Concatenator::Error::NoNumbers;
-    Dout(dc::notice, "ec1 = " << ec1 << " [" << ec1.message() << "]; ec2 = " << ec2 << " [" << ec2.message() << "]");
+    std::error_code ec5 = dbus::errors::System::Error::SE_ENOTSUP;
+    std::error_code ec6 = dbus::errors::org::sdbuscpp::Concatenator::Error::NoNumbers;
+    Dout(dc::notice, "ec5 = " << ec5 << " [" << ec5.message() << "]; ec6 = " << ec6 << " [" << ec6.message() << "]");
 
     dbus::Error dbe1{std::string("org.sdbuscpp.Concatenator.Error.NoNumbers"), std::string("some message")};
     dbus::Error dbe2{std::string("org.freedesktop.DBus.Error.Disconnected")};
     dbus::Error dbe3{std::string("System.Error.EAGAIN")};
     dbus::Error dbe4{std::string("org.freedesktop.DBus.Error.Something"), std::string("Non existing error")};
-    Dout(dc::notice, "dbe1 = " << dbe1 << " (error_code = " << static_cast<std::error_code>(dbe1) <<
-        "); dbe2 = " << dbe2 << " (error_code = " << static_cast<std::error_code>(dbe2) <<
-        "); dbe3 = " << dbe3 << " (error_code = " << static_cast<std::error_code>(dbe3) <<
-        "); dbe4 = " << dbe4 << " (error_code = " << static_cast<std::error_code>(dbe4) << ")");
+    std::error_code ec1 = static_cast<std::error_code>(dbe1);
+    std::error_code ec2 = static_cast<std::error_code>(dbe2);
+    std::error_code ec3 = static_cast<std::error_code>(dbe3);
+    std::error_code ec4 = static_cast<std::error_code>(dbe4);
+    Dout(dc::notice, "dbe1 = " << dbe1 << " (error_code = " << ec1 << " [" << ec1.message() << "]); " <<
+        "dbe2 = " << dbe2 << " (error_code = " << ec2 << " [" << ec2.message() << "]); " <<
+        "dbe3 = " << dbe3 << " (error_code = " << ec3 << " [" << ec3.message() << "]); " <<
+        "dbe4 = " << dbe4 << " (error_code = " << ec4 << " [" << ec4.message() << "])");
 
     // Set up the I/O event loop.
     evio::EventLoop event_loop(low_priority_queue);

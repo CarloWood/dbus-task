@@ -19,7 +19,8 @@ std::ostream& operator<<(std::ostream& os, Errors error)
 
 std::error_code ErrorDomain::get_error_code(std::string const& member_name) const
 {
-  return make_error_code(*magic_enum::enum_cast<Errors>(member_name));
+  auto error = magic_enum::enum_cast<Errors>(member_name);
+  return error.has_value() ? make_error_code(*error) : s_unknown_error;
 }
 
 // Instantiation of the error category object.

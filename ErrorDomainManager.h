@@ -9,17 +9,17 @@ namespace dbus {
 class ErrorDomainBase
 {
  protected:
+  static std::error_code s_unknown_domain;
+  static std::error_code s_unknown_error;
+
+ public:
   virtual ~ErrorDomainBase() = default;
 
  public:
-  virtual std::error_code get_error_code(std::string const& member_name) const = 0;
-};
-
-class UnknownErrorDomain : public ErrorDomainBase
-{
-  std::error_code get_error_code(std::string const& member_name) const override
+  virtual std::error_code get_error_code(std::string const& member_name) const
   {
-    return {EBADRQC, std::system_category()};
+    // Default.
+    return s_unknown_domain;
   }
 };
 
@@ -32,7 +32,7 @@ class ErrorDomainManager : public Singleton<ErrorDomainManager>
   ErrorDomainManager(ErrorDomainManager const&) = delete;
 
   std::map<std::string, ErrorDomainBase const*> m_error_domains;
-  UnknownErrorDomain m_unknown_domain;
+  ErrorDomainBase m_unknown_domain;
 
  public:
   ErrorDomainBase const& domain(std::string const& domain_name)
