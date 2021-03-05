@@ -7,6 +7,10 @@
 #include "resolver-task/DnsResolver.h"
 #include "threadsafe/Gate.h"
 #include "utils/debug_ostream_operators.h"
+#include "dbus-task/Error.h"
+#include "ErrorCategory.h"
+#include "System.Error/Errors.h"
+#include "org.freedesktop.DBus.Error/Errors.h"
 #include "debug.h"
 
 #include <systemd/sd-bus.h>
@@ -15,6 +19,73 @@
 #include <iostream>
 #include <string>
 #include <vector>
+
+//---------------------------------------------------------------------------
+// org.sdbuscpp.Concatenator.Error/Errors.h
+
+namespace dbus::errors {
+namespace org::sdbuscpp::Concatenator::Error {
+
+// Errors defined for org.sdbuscpp.Concatenator.Error.*
+
+// There is only one error defined.
+enum Errors
+{
+  NoNumbers = 1
+};
+
+struct ErrorDomain : public ErrorDomainBase
+{
+  std::error_code get_error_code(std::string const& member_name) const override;
+};
+
+extern ErrorCategory<ErrorDomain, Errors> theErrorCategory;
+
+// Functions that will be found using Argument-dependent lookup.
+std::string to_string(Errors error);
+std::ostream& operator<<(std::ostream& os, Errors error);
+inline char const* get_domain(Errors) { return "DBus:org.sdbuscpp.Concatenator.Error"; }
+inline std::error_code make_error_code(dbus::errors::org::sdbuscpp::Concatenator::Error::Errors ec) { return {ec, dbus::errors::org::sdbuscpp::Concatenator::Error::theErrorCategory}; }
+
+} // namespace org::sdbuscpp::Concatenator::Error
+} // namespace dbus::errors
+
+// Register Errors as valid error code.
+namespace std {
+template<> struct is_error_code_enum<dbus::errors::org::sdbuscpp::Concatenator::Error::Errors> : true_type { };
+} // namespace std
+
+//---------------------------------------------------------------------------
+// org.sdbuscpp.Concatenator.Error/Errors.cxx
+
+#include <magic_enum.hpp>
+
+namespace dbus::errors {
+namespace org::sdbuscpp::Concatenator::Error {
+
+std::string to_string(Errors error)
+{
+  return std::string{magic_enum::enum_name(error)};
+}
+
+std::ostream& operator<<(std::ostream& os, Errors error)
+{
+  os << to_string(error);
+  return os;
+}
+
+std::error_code ErrorDomain::get_error_code(std::string const& member_name) const
+{
+  return make_error_code(*magic_enum::enum_cast<Errors>(member_name));
+}
+
+// Instantiation of the error category object.
+ErrorCategory<ErrorDomain, Errors> theErrorCategory;
+
+} // namespace org::sdbuscpp::Concatenator::Error
+} // namespace dbus::errors
+
+//---------------------------------------------------------------------------
 
 std::ostream& operator<<(std::ostream& os, sd_bus_message* message)
 {
@@ -74,6 +145,11 @@ int callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_e
     sd_bus_error const* error = sd_bus_message_get_error(m);
     ASSERT(error);
     Dout(dc::notice, "Message is an error: " << error);
+
+    dbus::Error dbus_error = error;
+    std::error_code error_code = dbus_error;
+    Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "]");
+
     gate.open();
   }
   else
@@ -113,6 +189,19 @@ int main(int argc, char* argv[])
   // Main application begin.
   try
   {
+    std::error_code ec1 = dbus::errors::System::Error::SE_ENOTSUP;
+    std::error_code ec2 = dbus::errors::org::sdbuscpp::Concatenator::Error::NoNumbers;
+    Dout(dc::notice, "ec1 = " << ec1 << " [" << ec1.message() << "]; ec2 = " << ec2 << " [" << ec2.message() << "]");
+
+    dbus::Error dbe1{std::string("org.sdbuscpp.Concatenator.Error.NoNumbers"), std::string("some message")};
+    dbus::Error dbe2{std::string("org.freedesktop.DBus.Error.Disconnected")};
+    dbus::Error dbe3{std::string("System.Error.EAGAIN")};
+    dbus::Error dbe4{std::string("org.freedesktop.DBus.Error.Something"), std::string("Non existing error")};
+    Dout(dc::notice, "dbe1 = " << dbe1 << " (error_code = " << static_cast<std::error_code>(dbe1) <<
+        "); dbe2 = " << dbe2 << " (error_code = " << static_cast<std::error_code>(dbe2) <<
+        "); dbe3 = " << dbe3 << " (error_code = " << static_cast<std::error_code>(dbe3) <<
+        "); dbe4 = " << dbe4 << " (error_code = " << static_cast<std::error_code>(dbe4) << ")");
+
     // Set up the I/O event loop.
     evio::EventLoop event_loop(low_priority_queue);
     resolver::Scope resolver_scope(low_priority_queue, false);
@@ -126,16 +215,16 @@ int main(int argc, char* argv[])
     // Create proxy object for the concatenator object on the server side. Since here
     // we are creating the proxy instance without passing connection to it, the proxy
     // will create its own connection automatically, and it will be system bus connection.
-    char const* destinationName = "org.sdbuscpp.concatenator";
+    char const* serviceName = "org.sdbuscpp.concatenator";
     char const* objectPath      = "/org/sdbuscpp/concatenator";
-//    auto concatenatorProxy      = sdbus::createProxy(connection->get_connection(), destinationName, objectPath);
+//    auto concatenatorProxy      = sdbus::createProxy(connection->get_connection(), serviceName, objectPath);
 
     // Let's subscribe for the 'concatenated' signals
     char const* interfaceName = "org.sdbuscpp.Concatenator";
 //    concatenatorProxy->registerSignalHandler(interfaceName, "concatenated", &onConcatenated);
 //    concatenatorProxy->finishRegistration();
 
-    sd_bus_match_signal_async(connection->get_bus(), nullptr, destinationName, objectPath, interfaceName, "concatenated", onConcatenated, nullptr, nullptr);
+    sd_bus_match_signal_async(connection->get_bus(), nullptr, serviceName, objectPath, interfaceName, "concatenated", onConcatenated, nullptr, nullptr);
 
     std::vector<int32_t> numbers = {1, 2, 3};
     std::string separator    = ":";
@@ -145,7 +234,7 @@ int main(int argc, char* argv[])
       //auto method = concatenatorProxy->createMethodCall(interfaceName, "concatenate");
       sd_bus_message* message;
       int ret;
-      ret = sd_bus_message_new_method_call(connection->get_bus(), &message, destinationName, objectPath, interfaceName, "concatenate");
+      ret = sd_bus_message_new_method_call(connection->get_bus(), &message, serviceName, objectPath, interfaceName, "concatenate");
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_message_new_method_call");
       ret = sd_bus_message_append_array(message, 'i', &numbers[0], sizeof(int32_t) * numbers.size());
@@ -164,7 +253,7 @@ int main(int argc, char* argv[])
       //auto method = concatenatorProxy->createMethodCall(interfaceName, "concatenate");
       sd_bus_message* message;
       int ret;
-      ret = sd_bus_message_new_method_call(connection->get_bus(), &message, destinationName, objectPath, interfaceName, "concatenate");
+      ret = sd_bus_message_new_method_call(connection->get_bus(), &message, serviceName, objectPath, interfaceName, "concatenate");
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_message_new_method_call");
       ret = sd_bus_message_append_array(message, 'i', &numbers[0], 0);
