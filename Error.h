@@ -16,18 +16,10 @@ namespace dbus {
 // In .h:
 //
 // namespace dbus {
-// static constexpr ErrorConst foo_error = { SD_BUS_ERROR_MAKE_CONST{ "org.example.name", "Error description" } };
+// static constexpr ErrorConst foo_error = { SD_BUS_ERROR_MAKE_CONST("org.example.name", "Error description") };
 // } // namespace dbus
 //
-// In .cxx:
-//
-// namespace {
-// utils::Register<dbus::ErrorConst> register_foo_error(foo_error, &dbus::ErrorManager::register)
-// }
-//
 // This is the ONLY way ErrorConst may be created!
-//
-// Note: the name register_foo_error is irrelevant; as long as it is unique within the TU of course.
 //
 struct ErrorConst
 {
@@ -68,17 +60,4 @@ class Error : protected ErrorConst
   operator std::error_code() const;
 };
 
-#if 0
-std::error_code make_error_code(ErrorCode);
-#endif
-
 } // namespace dbus
-
-#if 0
-// Register dbus::ErrorCode as valid error code.
-namespace std {
-
-template<> struct is_error_code_enum<dbus::ErrorCode> : true_type { };
-
-} // namespace std
-#endif
