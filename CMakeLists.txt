@@ -5,6 +5,10 @@ project(dbus-task
   LANGUAGES CXX
 )
 
+# Require support for C++17.
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 #==============================================================================
 # DEPENDENCIES
 #
@@ -47,11 +51,6 @@ target_include_directories(dbus-task_ObjLib
   PUBLIC
     "${CWDS_INTERFACE_INCLUDE_DIRECTORIES}" # For sys.h and debug.h.
     "${Libsystemd_INCLUDE_DIRS}"
-)
-
-# Require support for C++17.
-target_compile_features(dbus-task_ObjLib
-  PUBLIC cxx_std_17
 )
 
 # Set link dependencies.
