@@ -5,8 +5,13 @@
 #include "dbus-task/ErrorCategory.h"
 #include "dbus-task/System.Error/Errors.h"
 #include "dbus-task/org.freedesktop.DBus.Error/Errors.h"
+#include "dbus-task/DBusConnection.h"
+#include "dbus-task/DBusMethodCall.h"
+#include "dbus-task/Message.h"
+#include "dbus-task/DBusConnectionBrokerKey.h"
 #include "statefultask/AIStatefulTask.h"
 #include "statefultask/DefaultMemoryPagePool.h"
+#include "statefultask/Broker.h"
 #include "evio/EventLoop.h"
 #include "resolver-task/DnsResolver.h"
 #include "threadsafe/Gate.h"
@@ -56,16 +61,13 @@ aithreadsafe::Gate gate;
 int on_reply_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
 {
   DoutEntering(dc::notice, "on_reply_concatenate(" << m << ", " << userdata << ", emtpy_error)");
-  int is_error = sd_bus_message_is_method_error(m, nullptr);
-  if (is_error < 0)
-    THROW_ALERTC(-is_error, "sd_bus_message_is_method_error");
+  dbus::MessageRead message(m);
+  bool is_error = message.is_method_error();
   if (is_error)
   {
-    sd_bus_error const* error = sd_bus_message_get_error(m);
-    ASSERT(error);
-    Dout(dc::notice, "Message is an error: " << error);
+    dbus::Error dbus_error = message.get_error();
+    Dout(dc::notice, "Message is an error: " << dbus_error);
 
-    dbus::Error dbus_error = error;
     std::error_code error_code = dbus_error;
     Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "]");
 
@@ -112,46 +114,71 @@ int main(int argc, char* argv[])
     evio::EventLoop event_loop(low_priority_queue);
     resolver::Scope resolver_scope(low_priority_queue, false);
 
-    // Create D-Bus connection to the system bus and requests name on it.
-    auto connection = evio::create<dbus_task::Connection>();
-    connection->connect();
+    // Brokers are not singletons, but this object could be shared between multiple threads.
+    auto broker = statefultask::create<task::Broker<task::DBusConnection>>(CWDEBUG_ONLY(true));
+    broker->run(low_priority_queue);         // Never finishes, unless all references to it are deleted.
+
+    // For the purpose of this test, use a Gate to wait for completion.
+    aithreadsafe::Gate connection_finished;
+
+    dbus::DBusConnectionBrokerKey key;
+    key.request_service_name("com.alinoe.concatenator");
+    // This call is thread-safe. The returned task::DBusConnection may not be written to:
+    // it is strictly read-only and can only be used once it finished.
+    // The task will be run (if that is still required) by the Handler that is passed to the broker.
+    // If all callbacks ever passed to broker->run() do minimal work then the immediate handler
+    // can be used for the Broker (aka, do not pass a handler).
+    auto dbus_connection = broker->run(key, [&connection_finished](bool success){ connection_finished.open(); });
+    Dout(dc::notice, "Requested name = \"" << dbus_connection->service_name() << "\".");
+
+    // Wait till task::DBusConnection finished.
+    connection_finished.wait();
+    Dout(dc::notice, "Unique name = \"" << dbus_connection->get_unique_name() << "\".");
 
     // Create proxy object for the concatenator object on the server side. Since here
     // we are creating the proxy instance without passing connection to it, the proxy
     // will create its own connection automatically, and it will be system bus connection.
-    char const* serviceName = "org.sdbuscpp.concatenator";
-    char const* objectPath      = "/org/sdbuscpp/concatenator";
+    char const* serviceName   = "org.sdbuscpp.concatenator";
+    char const* objectPath    = "/org/sdbuscpp/concatenator";
     char const* interfaceName = "org.sdbuscpp.Concatenator";
+    dbus::Destination const destination(serviceName, objectPath, interfaceName, "concatenated");
 
     // Let's subscribe for the 'concatenated' signals
-    sd_bus_match_signal_async(connection->get_bus(), nullptr, serviceName, objectPath, interfaceName, "concatenated", on_signal_concatenated, nullptr, nullptr);
+    sd_bus_match_signal_async(dbus_connection->get_bus(), nullptr, serviceName, objectPath, interfaceName, "concatenated", on_signal_concatenated, nullptr, nullptr);
 
     std::vector<int32_t> numbers = {1, 2, 3};
     std::string separator    = ":";
 
     // Invoke concatenate on given interface of the object
     {
-      sd_bus_message* message;
+      aithreadsafe::Gate gate3;
+
+      boost::intrusive_ptr<task::DBusMethodCall> dbus_message = new task::DBusMethodCall(CWDEBUG_ONLY(true));
+      dbus_message->create_message(dbus_connection, destination);
+      dbus_message->append(numbers.begin(), numbers.end()).append(separator);
+      dbus_message->run([&gate3](bool success){ gate3.open(); });
+
+      // Wait till task::DBusConnection finished.
+      gate3.wait();
+
+      dbus::Message message(dbus_connection, destination);
+      message.append(numbers.begin(), numbers.end());
+      message.append(separator);
+//      message.send(.. needs a callback ..);
+
+#if 0
       int ret;
-      ret = sd_bus_message_new_method_call(connection->get_bus(), &message, serviceName, objectPath, interfaceName, "concatenate");
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_message_new_method_call");
-      ret = sd_bus_message_append_array(message, 'i', &numbers[0], sizeof(int32_t) * numbers.size());
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_message_append_array");
-      ret = sd_bus_message_append_basic(message, 's', separator.c_str());
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_message_append_basic");
-      ret = sd_bus_call_async(connection->get_bus(), nullptr, message, on_reply_concatenate, nullptr, 0);
+      ret = sd_bus_call_async(dbus_connection->get_bus(), nullptr, message, on_reply_concatenate, nullptr, 0);
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_call_async");
+#endif
     }
 
     // Invoke concatenate again, this time with no numbers and we shall get an error
     {
       sd_bus_message* message;
       int ret;
-      ret = sd_bus_message_new_method_call(connection->get_bus(), &message, serviceName, objectPath, interfaceName, "concatenate");
+      ret = sd_bus_message_new_method_call(dbus_connection->get_bus(), &message, serviceName, objectPath, interfaceName, "concatenate");
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_message_new_method_call");
       ret = sd_bus_message_append_array(message, 'i', &numbers[0], 0);
@@ -160,13 +187,12 @@ int main(int argc, char* argv[])
       ret = sd_bus_message_append_basic(message, 's', separator.c_str());
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_message_append_basic");
-      ret = sd_bus_call_async(connection->get_bus(), nullptr, message, on_reply_concatenate, nullptr, 0);
+      ret = sd_bus_call_async(dbus_connection->get_bus(), nullptr, message, on_reply_concatenate, nullptr, 0);
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_call_async");
     }
 
     gate.wait();
-    connection->close();
 
     // Application terminated cleanly.
     event_loop.join();

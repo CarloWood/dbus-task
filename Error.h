@@ -35,6 +35,7 @@ class Error : protected ErrorConst
  public:
   Error() { m_error = SD_BUS_ERROR_NULL; }
   Error(ErrorConst const& constant) { m_error = SD_BUS_ERROR_NULL; /* avoid EINVAL */ sd_bus_error_copy(&m_error, &constant.m_error); }
+  Error(Error const& orig) { m_error = SD_BUS_ERROR_NULL; /* avoid EINVAL */ sd_bus_error_copy(&m_error, &orig.m_error); }
   Error(Error&& error) { sd_bus_error_move(&m_error, &error.m_error); }
   ~Error() { sd_bus_error_free(&m_error); }
 
@@ -49,6 +50,7 @@ class Error : protected ErrorConst
   Error(sd_bus_error const* error) { m_error = SD_BUS_ERROR_NULL; sd_bus_error_copy(&m_error, error); }
 
   Error& operator=(ErrorConst const& constant) { sd_bus_error_free(&m_error); sd_bus_error_copy(&m_error, &constant.m_error); return *this; }
+  Error& operator=(Error const& rhs) { sd_bus_error_free(&m_error); sd_bus_error_copy(&m_error, &rhs.m_error); return *this; }
   Error& operator=(Error&& error) { sd_bus_error_free(&m_error); sd_bus_error_move(&m_error, &error.m_error); return *this; }
 
   void print_on(std::ostream& os) const { print_ErrorConst_on(os, m_error); }

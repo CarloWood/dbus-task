@@ -2,7 +2,7 @@
 #include "dbus-task/Connection.h"
 #include <poll.h>
 
-namespace dbus_task {
+namespace dbus {
 
 void Connection::handle_dbus_io(int current_flags)
 {
@@ -60,4 +60,4 @@ void Connection::write_to_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_A
   handle_dbus_io(POLLOUT);
 }
 
-} // namespace dbus_task
+} // namespace dbus

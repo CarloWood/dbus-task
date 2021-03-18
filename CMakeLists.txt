@@ -37,12 +37,16 @@ target_sources(dbus-task_ObjLib
   PRIVATE
     "Connection.cxx"
     "Connection.h"
-    "Client.cxx"
-    "Client.h"
+    "DBusConnection.cxx"
+    "DBusConnection.h"
+    "DBusMethodCall.cxx"
+    "DBusMethodCall.h"
     "Error.cxx"
     "Error.h"
     "ErrorDomainManager.cxx"
     "ErrorDomainManager.h"
+    "Message.cxx"
+    "Message.h"
 )
 
 # Required include search-paths.

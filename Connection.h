@@ -13,7 +13,9 @@
 #include <cstring>      // strlen, strchr
 #include "debug.h"
 
-namespace dbus_task {
+#pragma once
+
+namespace dbus {
 
 class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 {
@@ -21,7 +23,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
   sd_bus* m_bus;
 
  public:
-  Connection()
+  Connection() CWDEBUG_ONLY(: m_inside_handle_dbus_io(0))
   {
     DoutEntering(dc::notice, "Connection::Connection()");
   }
@@ -33,16 +35,9 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
   }
 #endif
 
-  void connect()
+  void connect_user(std::string description = "Connection")
   {
     DoutEntering(dc::notice, "Connection::create_connection()");
-#if 0
-    int fd = create_tcp_connection(sdbus::decode_bus_address(sdbus::get_bus_address_user()), 8192, 8192, 0, 0, SocketAddress{});
-    if (fd == -1)
-      THROW_ALERTE("Failed to create D-Bus connection to \"[ADDRESS]\"", AIArgs("[ADDRESS]", sdbus::get_bus_address_user()));
-    m_connection = sdbus::createSessionBusConnection(fd, fd);
-#endif
-    std::string description = "Connection";
     int ret = sd_bus_open_user_with_description(&m_bus, description.c_str());           // Create and connects a socket and writes the initial messages to it.
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_open_user_with_description");
@@ -51,13 +46,35 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
       THROW_ALERTC(-ret, "sd_bus_get_fd");
     fd_init(fd);
     start_output_device();
-//    start_input_device();                                                               // Wait for the reply from the server.
+  }
+
+  void connect_system(std::string description = "Connection")
+  {
+    DoutEntering(dc::notice, "Connection::create_connection()");
+    int ret = sd_bus_open_system_with_description(&m_bus, description.c_str());
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_open_system_with_description");
+    int fd = ret = sd_bus_get_fd(m_bus);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_get_fd");
+    fd_init(fd);
+    start_output_device();
   }
 
   sd_bus* get_bus() { return m_bus; }
+  std::string get_unique_name() const
+  {
+    char const* unique_name;
+    int ret = sd_bus_get_unique_name(m_bus, &unique_name);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_get_unique_name");
+    return unique_name;
+  }
 
  private:
+#ifdef CWDEBUG
   std::atomic_int m_inside_handle_dbus_io;
+#endif
 
   void handle_dbus_io(int current_flags);
 
@@ -78,4 +95,4 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
   }
 };
 
-} // namespace dbus_task
+} // namespace dbus

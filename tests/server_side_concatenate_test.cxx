@@ -87,7 +87,7 @@ int main()
     int r = sd_bus_open_user(&bus);
     if (r < 0)
     {
-      std::cerr << "Failed to connect to system bus: " << std::strerror(-r) << std::endl;
+      std::cerr << "Failed to connect to session bus: " << std::strerror(-r) << std::endl;
       goto finish;
     }
 
