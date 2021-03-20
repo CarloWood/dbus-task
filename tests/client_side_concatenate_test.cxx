@@ -128,7 +128,8 @@ int main(int argc, char* argv[])
     // The task will be run (if that is still required) by the Handler that is passed to the broker.
     // If all callbacks ever passed to broker->run() do minimal work then the immediate handler
     // can be used for the Broker (aka, do not pass a handler).
-    auto dbus_connection = broker->run(key, [&connection_finished](bool success){ connection_finished.open(); });
+    auto dbus_connection = broker->run(key, [&connection_finished](bool success){ Dout(dc::notice, "dbus_connection finished!"); connection_finished.open(); });
+#if 0
     Dout(dc::notice, "Requested name = \"" << dbus_connection->service_name() << "\".");
 
     // Wait till task::DBusConnection finished.
@@ -191,6 +192,7 @@ int main(int argc, char* argv[])
       if (ret < 0)
         THROW_ALERTC(-ret, "sd_bus_call_async");
     }
+#endif
 
     gate.wait();
 
