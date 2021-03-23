@@ -6,6 +6,7 @@
 #include "dbus-task/System.Error/Errors.h"
 #include "dbus-task/org.freedesktop.DBus.Error/Errors.h"
 #include "dbus-task/DBusConnection.h"
+#include "dbus-task/DBusMatchSignal.h"
 #include "dbus-task/DBusMethodCall.h"
 #include "dbus-task/Message.h"
 #include "dbus-task/DBusConnectionBrokerKey.h"
@@ -55,6 +56,13 @@ int on_signal_concatenated(sd_bus_message* message, void* userdata, sd_bus_error
   return 0;
 }
 
+void on_signal_concatenated(dbus::MessageRead const& message)
+{
+  DoutEntering(dc::notice, "on_signal_concatenated(message)");
+  sd_bus_error error;
+  on_signal_concatenated(message, nullptr, &error);
+}
+
 // Open the gate to terminate application.
 aithreadsafe::Gate gate;
 
@@ -87,6 +95,13 @@ int on_reply_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED
   return 0;
 }
 
+void on_reply_concatenate(dbus::MessageRead const& message)
+{
+  DoutEntering(dc::notice, "on_reply_concatenate(message)");
+  sd_bus_error error;
+  on_reply_concatenate(message, nullptr, &error);
+}
+
 int main(int argc, char* argv[])
 {
   Debug(debug::init());
@@ -114,87 +129,58 @@ int main(int argc, char* argv[])
     evio::EventLoop event_loop(low_priority_queue);
     resolver::Scope resolver_scope(low_priority_queue, false);
 
+    using statefultask::create;
+
     // Brokers are not singletons, but this object could be shared between multiple threads.
-    auto broker = statefultask::create<task::Broker<task::DBusConnection>>(CWDEBUG_ONLY(true));
-    broker->run(low_priority_queue);         // Never finishes, unless all references to it are deleted.
+    auto broker = create<task::Broker<task::DBusConnection>>(CWDEBUG_ONLY(true));
+    // The broker never finishes, unless abort() is called on it.
+    broker->run(low_priority_queue);
 
-    // For the purpose of this test, use a Gate to wait for completion.
-    aithreadsafe::Gate connection_finished;
+    dbus::DBusConnectionBrokerKey broker_key;
+    broker_key.request_service_name("com.alinoe.concatenator");
 
-    dbus::DBusConnectionBrokerKey key;
-    key.request_service_name("com.alinoe.concatenator");
-    // This call is thread-safe. The returned task::DBusConnection may not be written to:
-    // it is strictly read-only and can only be used once it finished.
-    // The task will be run (if that is still required) by the Handler that is passed to the broker.
-    // If all callbacks ever passed to broker->run() do minimal work then the immediate handler
-    // can be used for the Broker (aka, do not pass a handler).
-    auto dbus_connection = broker->run(key, [&connection_finished](bool success){ Dout(dc::notice, "dbus_connection finished!"); connection_finished.open(); });
-#if 0
-    Dout(dc::notice, "Requested name = \"" << dbus_connection->service_name() << "\".");
-
-    // Wait till task::DBusConnection finished.
-    connection_finished.wait();
-    Dout(dc::notice, "Unique name = \"" << dbus_connection->get_unique_name() << "\".");
-
-    // Create proxy object for the concatenator object on the server side. Since here
-    // we are creating the proxy instance without passing connection to it, the proxy
-    // will create its own connection automatically, and it will be system bus connection.
-    char const* serviceName   = "org.sdbuscpp.concatenator";
-    char const* objectPath    = "/org/sdbuscpp/concatenator";
-    char const* interfaceName = "org.sdbuscpp.Concatenator";
-    dbus::Destination const destination(serviceName, objectPath, interfaceName, "concatenated");
+    // Set service name, object name, interface and method.
+    dbus::Destination const destination("org.sdbuscpp.concatenator", "/org/sdbuscpp/concatenator", "org.sdbuscpp.Concatenator", "concatenate");
+    dbus::Destination const signal_match("org.sdbuscpp.concatenator", "/org/sdbuscpp/concatenator", "org.sdbuscpp.Concatenator", "concatenated");
 
     // Let's subscribe for the 'concatenated' signals
-    sd_bus_match_signal_async(dbus_connection->get_bus(), nullptr, serviceName, objectPath, interfaceName, "concatenated", on_signal_concatenated, nullptr, nullptr);
-
-    std::vector<int32_t> numbers = {1, 2, 3};
-    std::string separator    = ":";
-
-    // Invoke concatenate on given interface of the object
     {
-      aithreadsafe::Gate gate3;
+      auto dbus_match_signal = create<task::DBusMatchSignal>(CWDEBUG_ONLY(true));
+      dbus_match_signal->set_destination(broker, &broker_key, &signal_match);
+      dbus_match_signal->set_match_callback([&](dbus::MessageRead const& message) { on_signal_concatenated(message); });
+      dbus_match_signal->run([](bool success){ Dout(dc::notice, "task::DBusMatchSignal " << (success ? "successful!" : "failed!")); });
+    }
 
-      boost::intrusive_ptr<task::DBusMethodCall> dbus_message = new task::DBusMethodCall(CWDEBUG_ONLY(true));
-      dbus_message->create_message(dbus_connection, destination);
-      dbus_message->append(numbers.begin(), numbers.end()).append(separator);
-      dbus_message->run([&gate3](bool success){ gate3.open(); });
+    std::vector<int32_t> const numbers = {1, 2, 3};
+    std::string const separator = ":";
 
-      // Wait till task::DBusConnection finished.
-      gate3.wait();
-
-      dbus::Message message(dbus_connection, destination);
-      message.append(numbers.begin(), numbers.end());
-      message.append(separator);
-//      message.send(.. needs a callback ..);
-
-#if 0
-      int ret;
-      ret = sd_bus_call_async(dbus_connection->get_bus(), nullptr, message, on_reply_concatenate, nullptr, 0);
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_call_async");
-#endif
+    // Invoke concatenate on given interface of the object.
+    {
+      auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
+      // It's ok to pass broker and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
+      dbus_method_call->set_destination(broker, &broker_key, &destination);
+      // Pass numbers and separator by reference, because their life time is longer than the life time of dbus_method_call.
+      dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.end()).append(separator); });
+      dbus_method_call->set_reply_callback([](dbus::MessageRead const& message) { on_reply_concatenate(message); });
+      dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
     }
 
     // Invoke concatenate again, this time with no numbers and we shall get an error
     {
-      sd_bus_message* message;
-      int ret;
-      ret = sd_bus_message_new_method_call(dbus_connection->get_bus(), &message, serviceName, objectPath, interfaceName, "concatenate");
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_message_new_method_call");
-      ret = sd_bus_message_append_array(message, 'i', &numbers[0], 0);
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_message_append_array");
-      ret = sd_bus_message_append_basic(message, 's', separator.c_str());
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_message_append_basic");
-      ret = sd_bus_call_async(dbus_connection->get_bus(), nullptr, message, on_reply_concatenate, nullptr, 0);
-      if (ret < 0)
-        THROW_ALERTC(-ret, "sd_bus_call_async");
+      auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
+      // It's ok to pass broker and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
+      dbus_method_call->set_destination(broker, &broker_key, &destination);
+      // Pass no numbers.
+      dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.begin()).append(separator); });
+      dbus_method_call->set_reply_callback([](dbus::MessageRead const& message) { on_reply_concatenate(message); });
+      dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
     }
-#endif
 
+    // Wait until we received the error for the last method call.
     gate.wait();
+
+    // Stop the broker task.
+    broker->abort();
 
     // Application terminated cleanly.
     event_loop.join();

@@ -8,15 +8,13 @@
 
 namespace task {
 
-class DBusMethodCall : public AIStatefulTask
+class DBusMatchSignal : public AIStatefulTask
 {
  private:
-  dbus::Message m_message;
   boost::intrusive_ptr<task::Broker<task::DBusConnection>> m_broker;
   dbus::DBusConnectionBrokerKey const* m_broker_key;
   dbus::Destination const* m_destination;
-  std::function<void(dbus::Message&)> m_params_callback;
-  std::function<void(dbus::MessageRead const&)> m_reply_callback;
+  std::function<void(dbus::MessageRead const&)> m_match_callback;
   boost::intrusive_ptr<task::DBusConnection const> m_dbus_connection;
 
  protected:
@@ -24,19 +22,19 @@ class DBusMethodCall : public AIStatefulTask
   using direct_base_type = AIStatefulTask;
 
   /// The different states of the stateful task.
-  enum DBusMethodCall_state_type {
-    DBusMethodCall_start = direct_base_type::state_end,
-    DBusMethodCall_create_message,
-    DBusMethodCall_done
+  enum DBusMatchSignal_state_type {
+    DBusMatchSignal_start = direct_base_type::state_end,
+    DBusMatchSignal_create_message,
+    DBusMatchSignal_done
   };
 
  public:
   /// One beyond the largest state of this task.
-  static state_type constexpr state_end = DBusMethodCall_done + 1;
+  static state_type constexpr state_end = DBusMatchSignal_done + 1;
 
-  DBusMethodCall(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
+  DBusMatchSignal(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
   {
-    DoutEntering(dc::statefultask(mSMDebug), "DBusMethodCall() [" << (void*)this << "]");
+    DoutEntering(dc::statefultask(mSMDebug), "DBusMatchSignal() [" << (void*)this << "]");
   }
 
   // The Destination object must have a life-time longer than the time it takes to finish task::DBusConnection.
@@ -47,30 +45,25 @@ class DBusMethodCall : public AIStatefulTask
     m_destination = destination;
   }
 
-  void set_params_callback(std::function<void(dbus::Message&)> params_callback)
+  void set_match_callback(std::function<void(dbus::MessageRead const&)> match_callback)
   {
-    m_params_callback = std::move(params_callback);
-  }
-
-  void set_reply_callback(std::function<void(dbus::MessageRead const&)> reply_callback)
-  {
-    m_reply_callback = std::move(reply_callback);
+    m_match_callback = std::move(match_callback);
   }
 
  private:
-  void reply_callback(dbus::MessageRead const& message);
+  void match_callback(dbus::MessageRead const& message);
 
-  static int reply_callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
+  static int match_callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
   {
-    static_cast<DBusMethodCall*>(userdata)->reply_callback(m);
+    static_cast<DBusMatchSignal*>(userdata)->match_callback(m);
     return 0;
   }
 
  protected:
   /// Call finish() (or abort()), not delete.
-  ~DBusMethodCall() override
+  ~DBusMatchSignal() override
   {
-    DoutEntering(dc::statefultask(mSMDebug), "~DBusMethodCall() [" << (void*)this << "]");
+    DoutEntering(dc::statefultask(mSMDebug), "~DBusMatchSignal() [" << (void*)this << "]");
   }
 
   /// Implemenation of state_str for run states.

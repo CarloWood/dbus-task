@@ -28,13 +28,6 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
     DoutEntering(dc::notice, "Connection::Connection()");
   }
 
-#if 0
-  void connected_cb(int&, bool)
-  {
-    DoutEntering(dc::notice, "Connection::connected_cb()");
-  }
-#endif
-
   void connect_user(std::string description = "Connection")
   {
     DoutEntering(dc::notice, "Connection::create_connection()");
@@ -80,19 +73,9 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 
  protected:
   virtual void read_from_fd(int& allow_deletion_count, int fd);
-
   virtual void write_to_fd(int& allow_deletion_count, int fd);
-
-  virtual void hup(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd))
-  {
-    DoutEntering(dc::notice, "Connection::hup");
-  }
-
-  virtual void err(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd))
-  {
-    DoutEntering(dc::notice, "Connection::err");
-    close();
-  }
+  virtual void hup(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "Connection::hup"); }
+  virtual void err(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "Connection::err"); close(); }
 };
 
 } // namespace dbus

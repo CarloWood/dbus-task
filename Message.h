@@ -127,9 +127,9 @@ class MessageRead : public MessageConst
   using MessageConst::MessageConst;
 
  public:
-  MessageRead(sd_bus_message* message) : MessageConst(const_cast<sd_bus_message const*>(message)) { }
+  MessageRead(sd_bus_message* message) : MessageConst(message) { }
   MessageRead& operator=(MessageRead&& message) { return static_cast<MessageRead&>(MessageConst::operator=(std::move(message))); }
-  MessageRead& operator=(sd_bus_message* message) { this->MessageConst::operator=(const_cast<sd_bus_message const*>(message)); return *this; }
+  MessageRead& operator=(sd_bus_message* message) { this->MessageConst::operator=(message); return *this; }
 
   bool at_end(bool complete = true) const
   {
@@ -150,6 +150,8 @@ class MessageRead : public MessageConst
     ASSERT(ret >= 0);
     return { type, ret };
   }
+
+  operator sd_bus_message*() const { return m_message; }
 };
 
 template<typename T> char get_type();
@@ -169,15 +171,12 @@ class Message : public MessageRead
  public:
   Message() = default;
 
-  Message(boost::intrusive_ptr<task::DBusConnection const> const& dbus_connection, Destination const& destination)
-  {
-    create_message(dbus_connection, destination);
-  }
-
   void create_message(boost::intrusive_ptr<task::DBusConnection const> const& dbus_connection, Destination const& destination)
   {
     // Only call this after using the default constructor.
     ASSERT(m_message == nullptr);
+    // This should be called from task::DBusMethodCall only after the DBusConnection is finished.
+    ASSERT(dbus_connection->finished());
     int ret = sd_bus_message_new_method_call(dbus_connection->get_bus(), &m_message,
         destination.service_name(), destination.object_path(), destination.interface_name(), destination.method_name());
     if (ret < 0)
@@ -188,22 +187,22 @@ class Message : public MessageRead
   // value_type must be one of the types for which get_type is specialized (see above; i.e. do not use 'int').
   //FIXME: use std::contiguous_iterator<InputIt> once we use C++20.
   template <typename InputIt>
-  void append(InputIt first, InputIt last)
+  Message& append(InputIt first, InputIt last)
   {
     using value_type = typename InputIt::value_type;
     char type = dbus::get_type<value_type>();
-    int ret;
+    int res;
     if constexpr (std::is_same_v<bool, value_type>)
     {
       std::vector<int> booleans;
       std::for_each(first, last, [&](bool boolean){ booleans.push_back(boolean); });
-      ret = sd_bus_message_append_array(m_message, type, &booleans[0], sizeof(int) * booleans.size());
+      res = sd_bus_message_append_array(m_message, type, &booleans[0], sizeof(int) * booleans.size());
     }
     else if constexpr (std::is_same_v<std::string, value_type>)
     {
       std::vector<char const*> strings;
       std::for_each(first, last, [&](std::string const& str){ strings.push_back(str.c_str()); });
-      ret = sd_bus_message_append_array(m_message, type, &strings[0], sizeof(char const*) * strings.size());
+      res = sd_bus_message_append_array(m_message, type, &strings[0], sizeof(char const*) * strings.size());
     }
     else
     {
@@ -216,23 +215,25 @@ class Message : public MessageRead
         ASSERT(number_of_elements - 1 == real_last - first);
       }
 #endif
-      ret = sd_bus_message_append_array(m_message, type, &*first, sizeof(value_type) * number_of_elements);
+      res = sd_bus_message_append_array(m_message, type, &*first, sizeof(value_type) * number_of_elements);
     }
-    if (ret < 0)
-      THROW_ALERTC(-ret, "sd_bus_message_append_array");
+    if (res < 0)
+      THROW_ALERTC(-res, "sd_bus_message_append_array");
+    return *this;
   }
 
   template<typename T>
-  void append(T basic_type)
+  Message& append(T basic_type)
   {
     char type = dbus::get_type<T>();
-    int ret;
+    int res;
     if constexpr (std::is_same_v<T, std::string>)
-      ret = sd_bus_message_append_basic(m_message, type, basic_type.c_str());
+      res = sd_bus_message_append_basic(m_message, type, basic_type.c_str());
     else
-      ret = sd_bus_message_append_basic(m_message, type, reinterpret_cast<void*>(basic_type));
-    if (ret < 0)
-      THROW_ALERTC(-ret, "sd_bus_message_append_basic");
+      res = sd_bus_message_append_basic(m_message, type, reinterpret_cast<void*>(basic_type));
+    if (res < 0)
+      THROW_ALERTC(-res, "sd_bus_message_append_basic");
+    return *this;
   }
 };
 

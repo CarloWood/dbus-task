@@ -39,6 +39,8 @@ target_sources(dbus-task_ObjLib
     "Connection.h"
     "DBusConnection.cxx"
     "DBusConnection.h"
+    "DBusMatchSignal.h"
+    "DBusMatchSignal.cxx"
     "DBusMethodCall.cxx"
     "DBusMethodCall.h"
     "Error.cxx"
@@ -61,6 +63,7 @@ target_include_directories(dbus-task_ObjLib
 target_link_libraries(dbus-task_ObjLib
   PUBLIC
     AICxx::statefultask
+    farmhash::farmhash
     magic_enum::magic_enum
     PkgConfig::Libsystemd
 )
