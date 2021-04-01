@@ -62,4 +62,6 @@ class Error : protected ErrorConst
   operator std::error_code() const;
 };
 
+inline std::ostream& operator<<(std::ostream& os, Error const& error) { error.print_on(os); return os; }
+
 } // namespace dbus

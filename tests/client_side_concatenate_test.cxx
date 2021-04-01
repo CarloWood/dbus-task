@@ -105,8 +105,10 @@ void on_reply_concatenate(dbus::MessageRead const& message)
   on_reply_concatenate(message, nullptr, &error);
 }
 
+#ifdef CWDEBUG
 // Specialize boost::intrusive_ptr<task::DBusConnection> to track its instances.
 DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusConnection)
+#endif
 
 int main(int argc, char* argv[])
 {
@@ -152,7 +154,7 @@ int main(int argc, char* argv[])
 
     // Let's subscribe for the 'concatenated' signals
     {
-      auto dbus_match_signal = create<task::DBusMatchSignal>(broker, CWDEBUG_ONLY(true));
+      auto dbus_match_signal = create<task::DBusMatchSignal>(broker COMMA_CWDEBUG_ONLY(true));
       dbus_match_signal->set_signal_match(&signal_match);
       dbus_match_signal->set_match_callback([&](dbus::MessageRead const& message) { on_signal_concatenated(message); });
       dbus_match_signal->run([](bool success){ Dout(dc::notice, "task::DBusMatchSignal " << (success ? "successful!" : "failed!")); });
@@ -190,7 +192,7 @@ int main(int argc, char* argv[])
     broker->abort();
 
     // Print stuff...
-    tracked::intrusive_ptr<task::DBusConnection>::for_each([](tracked::intrusive_ptr<task::DBusConnection> const* p){ Dout(dc::notice, p); });
+    Debug(tracked::intrusive_ptr<task::DBusConnection>::for_each([](tracked::intrusive_ptr<task::DBusConnection> const* p){ Dout(dc::notice, p); }));
 
     // Application terminated cleanly.
     event_loop.join();
