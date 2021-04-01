@@ -3,6 +3,7 @@
 #include "Connection.h"
 #include "statefultask/AIStatefulTask.h"
 #include "debug.h"
+#include <iomanip>
 
 namespace task {
 
@@ -15,16 +16,18 @@ class DBusConnectionData
   // Input variables.
   std::string m_service_name;                                   // Requested "well known" service name, if any (if this is a service).
   int m_flags;                                                  // Flags specifying how to handle duplicated serive name requests.
+  bool m_use_system_bus;                                        // Use system bus if true, user bus otherwise.
 
   // Set m_flags to zero because when request_service_name is
   // not called then it is still used to calculate a hash.
-  DBusConnectionData() : m_flags(0) { }
+  DBusConnectionData() : m_flags(0), m_use_system_bus(false) { }
+
   // Used by DBusConnectionBrokerKey.
   void initialize(DBusConnection& dbus_connection) const;
 
   bool operator==(DBusConnectionData const& other) const
   {
-    return m_service_name == other.m_service_name && m_flags == other.m_flags;
+    return m_service_name == other.m_service_name && m_flags == other.m_flags && m_use_system_bus == other.m_use_system_bus;
   }
 
   void print_on(std::ostream& os) const
@@ -55,6 +58,7 @@ class DBusConnectionData
         }
 
       }
+      os << ", use_system_bus:" << std::boolalpha << m_use_system_bus;
     }
     os << '}';
   }
@@ -77,6 +81,9 @@ class DBusConnectionData
   //       Queue the acquisition of the name when the name is already taken.
   //
   void request_service_name(std::string service_name, int flags = 0) { m_service_name = std::move(service_name); m_flags = flags; }
+
+  /// Set if this connection should be to the system bus or the user bus.
+  void set_use_system_bus(bool use_system_bus) { m_use_system_bus = use_system_bus; }
 };
 
 class DBusConnection : public AIStatefulTask, public DBusConnectionData
@@ -144,6 +151,9 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
 
   /// Called for base state @ref bs_finish and bs_abort.
   void finish_impl() override;
+
+  /// Called for base state bs_abort.
+  void abort_impl() override;
 
  private:
   // This is the callback for sd_bus_request_name_async.

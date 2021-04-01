@@ -11,8 +11,8 @@ namespace task {
 class DBusMatchSignal : public AIStatefulTask
 {
  private:
+  dbus::DBusConnectionBrokerKey m_broker_key;
   boost::intrusive_ptr<task::Broker<task::DBusConnection>> m_broker;
-  dbus::DBusConnectionBrokerKey const* m_broker_key;
   dbus::Destination const* m_destination;
   std::function<void(dbus::MessageRead const&)> m_match_callback;
   boost::intrusive_ptr<task::DBusConnection const> m_dbus_connection;
@@ -32,22 +32,26 @@ class DBusMatchSignal : public AIStatefulTask
   /// One beyond the largest state of this task.
   static state_type constexpr state_end = DBusMatchSignal_done + 1;
 
-  DBusMatchSignal(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
+  DBusMatchSignal(boost::intrusive_ptr<task::Broker<task::DBusConnection>> broker COMMA_CWDEBUG_ONLY(bool debug = false)) :
+    m_broker(std::move(broker)) COMMA_CWDEBUG_ONLY(AIStatefulTask(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusMatchSignal() [" << (void*)this << "]");
   }
 
   // The Destination object must have a life-time longer than the time it takes to finish task::DBusConnection.
-  void set_destination(boost::intrusive_ptr<task::Broker<task::DBusConnection>> broker, dbus::DBusConnectionBrokerKey const* broker_key, dbus::Destination const* destination)
+  void set_signal_match(dbus::Destination const* destination)
   {
-    m_broker = broker;
-    m_broker_key = broker_key;
     m_destination = destination;
   }
 
   void set_match_callback(std::function<void(dbus::MessageRead const&)> match_callback)
   {
     m_match_callback = std::move(match_callback);
+  }
+
+  void use_system_bus(bool use_system_bus = true)
+  {
+    m_broker_key.set_use_system_bus(use_system_bus);
   }
 
  private:

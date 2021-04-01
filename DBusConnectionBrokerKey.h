@@ -11,7 +11,7 @@ class DBusConnectionBrokerKey : public statefultask::BrokerKey, public task::DBu
  protected:
   uint64_t hash() const final
   {
-    return util::Hash64WithSeeds(m_service_name.data(), m_service_name.length(), 0x9ae16a3b2f90404fULL, m_flags);
+    return util::Hash64WithSeeds(m_service_name.data(), m_service_name.length(), m_use_system_bus ? 0xa38b092ee91a871fULL : 0x9ae16a3b2f90404fULL, m_flags);
   }
 
   void initialize(boost::intrusive_ptr<AIStatefulTask> task) const final

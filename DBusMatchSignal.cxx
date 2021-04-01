@@ -28,7 +28,7 @@ void DBusMatchSignal::multiplex_impl(state_type run_state)
   {
     case DBusMatchSignal_start:
     {
-      m_dbus_connection = m_broker->run(*m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(1); });
+      m_dbus_connection = m_broker->run(m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(1); });
       Dout(dc::notice, "Requested name = \"" << m_dbus_connection->service_name() << "\".");
       set_state(DBusMatchSignal_create_message);
       wait(1);

@@ -49,7 +49,10 @@ void DBusConnection::multiplex_impl(state_type run_state)
       // This call could be blocking if the environment variable DBUS_SESSION_BUS_ADDRESS is
       // set to point to remote connection. In that case libsystemd will resolve the host
       // name and blocking connect to the socket using ssh :/.
-      m_connection->connect_user("DBusConnection");
+      if (m_use_system_bus)
+        m_connection->connect_system("DBusConnection - system");
+      else
+        m_connection->connect_user("DBusConnection - user");
       if (!m_service_name.empty())
       {
         set_state(DBusConnection_wait_for_request_name_result);
@@ -72,12 +75,14 @@ void DBusConnection::multiplex_impl(state_type run_state)
         sd_bus_error const* error = sd_bus_message_get_error(m_request_name_async_callback_message);
         dbus::Error dbus_error = error;
         sd_bus_message_unref(m_request_name_async_callback_message);
+        m_request_name_async_callback_message = nullptr;
         THROW_FALERT("[ERROR]", AIArgs("[ERROR]", dbus_error));
         abort();
       }
       else
         Dout(dc::notice, "Received message: " << m_request_name_async_callback_message);
       sd_bus_message_unref(m_request_name_async_callback_message);
+      m_request_name_async_callback_message = nullptr;
       set_state(DBusConnection_done);
       break;
     }
@@ -88,16 +93,28 @@ void DBusConnection::finish_impl()
 {
   if (m_slot)
   {
+    // Make sure DBusConnection::s_request_name_async_callback is never called (in case we get here after an abort()).
     sd_bus_slot_unref(m_slot);
     m_slot = nullptr;
   }
 }
 
+void DBusConnection::abort_impl()
+{
+  if (m_request_name_async_callback_message)
+  {
+    sd_bus_message_unref(m_request_name_async_callback_message);
+    m_request_name_async_callback_message = nullptr;
+  }
+  if (m_connection)
+    m_connection->close();
+}
+
 void DBusConnectionData::initialize(DBusConnection& dbus_connection) const
 {
-  if (m_service_name.empty())
-    return;
-  dbus_connection.request_service_name(m_service_name, m_flags);
+  if (!m_service_name.empty())
+    dbus_connection.request_service_name(m_service_name, m_flags);
+  dbus_connection.set_use_system_bus(m_use_system_bus);
 }
 
 } // namespace task

@@ -30,7 +30,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 
   void connect_user(std::string description = "Connection")
   {
-    DoutEntering(dc::notice, "Connection::create_connection()");
+    DoutEntering(dc::notice, "Connection::connect_user()");
     int ret = sd_bus_open_user_with_description(&m_bus, description.c_str());           // Create and connects a socket and writes the initial messages to it.
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_open_user_with_description");
@@ -43,7 +43,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 
   void connect_system(std::string description = "Connection")
   {
-    DoutEntering(dc::notice, "Connection::create_connection()");
+    DoutEntering(dc::notice, "Connection::connect_system()");
     int ret = sd_bus_open_system_with_description(&m_bus, description.c_str());
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_open_system_with_description");
