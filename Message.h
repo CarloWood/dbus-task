@@ -67,9 +67,9 @@ class MessageConst
   operator sd_bus_message const*() const { return m_message; }
 
   sd_bus* get_bus() const { return sd_bus_message_get_bus(m_message); }
-  bool is_signal(char const* interface = nullptr, char const* member = nullptr) { return sd_bus_message_is_signal(m_message, interface, member); }
-  bool is_method_call(char const* interface = nullptr, char const* member = nullptr) { return sd_bus_message_is_method_call(m_message, interface, member); }
-  bool is_method_error(char const* name = nullptr) { return sd_bus_message_is_method_error(m_message, name); }
+  bool is_signal(char const* interface = nullptr, char const* member = nullptr) const { return sd_bus_message_is_signal(m_message, interface, member); }
+  bool is_method_call(char const* interface = nullptr, char const* member = nullptr) const { return sd_bus_message_is_method_call(m_message, interface, member); }
+  bool is_method_error(char const* name = nullptr) const { return sd_bus_message_is_method_error(m_message, name); }
 
   // Possible return values:
   // SD_BUS_MESSAGE_METHOD_CALL, SD_BUS_MESSAGE_METHOD_RETURN, SD_BUS_MESSAGE_METHOD_ERROR, SD_BUS_MESSAGE_SIGNAL.
@@ -140,6 +140,90 @@ class MessageRead : public MessageConst
   }
   void enter_container(char type, char const* contents) { sd_bus_message_enter_container(m_message, type, contents); }
   void exit_container() { sd_bus_message_exit_container(m_message); }
+
+  MessageRead const& operator>>(uint8_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "y", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(bool& b) const
+  {
+    int n;
+    int ret = sd_bus_message_read(m_message, "b", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    b = n;
+    return *this;
+  }
+
+  MessageRead const& operator>>(int16_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "n", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(uint16_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "q", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(int32_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "i", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(uint32_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "u", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(int64_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "x", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(uint64_t& n) const
+  {
+    int ret = sd_bus_message_read(m_message, "t", &n);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(double& d) const
+  {
+    int ret = sd_bus_message_read(m_message, "d", &d);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    return *this;
+  }
+
+  MessageRead const& operator>>(std::string& s) const
+  {
+    char const* str;
+    int ret = sd_bus_message_read(m_message, "s", &str);
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_message_read");
+    s = str;
+    return *this;
+  }
 
   std::pair<char, bool> peek_type() const
   {

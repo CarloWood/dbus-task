@@ -44,35 +44,21 @@ std::ostream& operator<<(std::ostream& os, sd_bus_message* message)
   return os << '}';
 }
 
-int on_signal_concatenated(sd_bus_message* message, void* userdata, sd_bus_error* error)
-{
-  DoutEntering(dc::notice, "on_signal_concatenated(" << message << ", " << userdata << ", " << error << ")");
-
-  char const* str;
-  int ret = sd_bus_message_read(message, "s", &str);
-  if (ret < 0)
-    THROW_ALERTC(-ret, "sd_bus_message_read");
-
-  std::string concatenatedString = str;
-  Dout(dc::notice, "Received signal with concatenated string " << concatenatedString);
-
-  return 0;
-}
-
 void on_signal_concatenated(dbus::MessageRead const& message)
 {
   DoutEntering(dc::notice, "on_signal_concatenated(message)");
-  sd_bus_error error;
-  on_signal_concatenated(message, nullptr, &error);
+
+  std::string concatenatedString;
+  message >> concatenatedString;
+  Dout(dc::notice, "Received signal with concatenated string " << concatenatedString);
 }
 
 // Open the gate to terminate application.
 aithreadsafe::Gate gate;
 
-int on_reply_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
+void on_reply_concatenate(dbus::MessageRead const& message)
 {
-  DoutEntering(dc::notice, "on_reply_concatenate(" << m << ", " << userdata << ", emtpy_error)");
-  dbus::MessageRead message(m);
+  DoutEntering(dc::notice, "on_reply_concatenate(message)");
   bool is_error = message.is_method_error();
   if (is_error)
   {
@@ -86,23 +72,11 @@ int on_reply_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED
   }
   else
   {
-    char const* str;
-    int ret = sd_bus_message_read(m, "s", &str);
-    if (ret < 0)
-      THROW_ALERTC(-ret, "sd_bus_message_read");
-    std::string result = str;
+    std::string result;
+    message >> result;
     Dout(dc::notice, "result = \"" << result << "\".");
     assert(result == "1:2:3");
   }
-
-  return 0;
-}
-
-void on_reply_concatenate(dbus::MessageRead const& message)
-{
-  DoutEntering(dc::notice, "on_reply_concatenate(message)");
-  sd_bus_error error;
-  on_reply_concatenate(message, nullptr, &error);
 }
 
 #ifdef CWDEBUG
