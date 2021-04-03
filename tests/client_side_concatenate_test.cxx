@@ -23,26 +23,9 @@
 #include "cwds/tracked_intrusive_ptr.h"
 #endif
 
-#include <systemd/sd-bus.h>
-#include <unistd.h>
-
 #include <iostream>
 #include <string>
 #include <vector>
-
-std::ostream& operator<<(std::ostream& os, sd_bus_message* message)
-{
-  char const* destination = sd_bus_message_get_destination(message);
-  char const* path = sd_bus_message_get_path(message);
-  char const* interface = sd_bus_message_get_interface(message);
-  char const* member = sd_bus_message_get_member(message);
-  os << '{';
-  os << "destination:\"" << (destination ? destination : "nullptr") << "\", ";
-  os << "path:\"" << (path ? path : "nullptr") << "\", ";
-  os << "interface:\"" << (interface ? interface : "nullptr") << "\", ";
-  os << "member:\"" << (member ? member : "nullptr") << "\"";
-  return os << '}';
-}
 
 void on_signal_concatenated(dbus::MessageRead const& message)
 {
@@ -84,7 +67,7 @@ void on_reply_concatenate(dbus::MessageRead const& message)
 DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusConnection)
 #endif
 
-int main(int argc, char* argv[])
+int main()
 {
   Debug(debug::init());
   Dout(dc::notice, "Entering main()");
@@ -94,7 +77,7 @@ int main(int argc, char* argv[])
 
   // Set up the thread pool for the application.
   int const number_of_threads = 8;                      // Use a thread pool of 8 threads.
-  int const max_number_of_threads = 16;                 // This can later dynamically increased to 16 if needed.
+  int const max_number_of_threads = 16;                 // This can later dynamically be increased to 16 if needed.
   int const queue_capacity = number_of_threads;
   int const reserved_threads = 1;                       // Reserve 1 thread for each priority.
   // Create the thread pool.
@@ -109,7 +92,7 @@ int main(int argc, char* argv[])
   try
   {
     // Set up the I/O event loop.
-    evio::EventLoop event_loop(low_priority_queue, "\e[36m", "\e[0m");
+    evio::EventLoop event_loop(low_priority_queue COMMA_CWDEBUG_ONLY("\e[36m", "\e[0m"));
     resolver::Scope resolver_scope(low_priority_queue, false);
 
     using statefultask::create;
@@ -140,7 +123,7 @@ int main(int argc, char* argv[])
     // Invoke concatenate on given interface of the object.
     {
       auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
-      // It's ok to pass broker and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
+      // It's ok to pass broker, broker_key and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
       dbus_method_call->set_destination(broker, &broker_key, &destination);
       // Pass numbers and separator by reference, because their life time is longer than the life time of dbus_method_call.
       dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.end()).append(separator); });

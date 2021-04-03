@@ -43,6 +43,8 @@ target_sources(dbus-task_ObjLib
     "DBusMatchSignal.cxx"
     "DBusMethodCall.cxx"
     "DBusMethodCall.h"
+    "DBusObject.cxx"
+    "DBusObject.h"
     "Error.cxx"
     "Error.h"
     "ErrorDomainManager.cxx"

@@ -1,14 +1,32 @@
 #include "sys.h"
+#include "org.sdbuscpp.Concatenator.Error/Errors.h"
+#include "dbus-task/DBusConnection.h"
+#include "dbus-task/DBusConnectionBrokerKey.h"
+#include "dbus-task/DBusObject.h"
+#include "dbus-task/Interface.h"
+#include "statefultask/AIStatefulTask.h"
+#include "statefultask/DefaultMemoryPagePool.h"
+#include "statefultask/Broker.h"
+#include "evio/EventLoop.h"
+#include "threadpool/AIThreadPool.h"
+#include "resolver-task/DnsResolver.h"
 #include "utils/AIAlert.h"
 #include "utils/debug_ostream_operators.h"
-#include <systemd/sd-bus.h>
+#include "debug.h"
+#ifdef CWDEBUG
+#include "cwds/tracked_intrusive_ptr.h"
+#endif
+
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
-#include "debug.h"
+
+#include <systemd/sd-bus.h>
 
 static int method_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* ret_error)
 {
+  DoutEntering(dc::notice, "method_concatenate(" << m << ", " << userdata << ", ret_error)");
+
   // Deserialize the collection of numbers from the message.
   std::vector<int> numbers;
 
@@ -49,20 +67,25 @@ static int method_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* r
   if (ret < 0)
     THROW_ALERTC(-ret, "sd_bus_reply_method_return");
 
+#if 0
   // Emit 'concatenated' signal
-  char const* interfaceName = "org.sdbuscpp.Concatenator";
   char const* objectPath    = "/org/sdbuscpp/concatenator";
+  char const* interfaceName = "org.sdbuscpp.Concatenator";
 
-  sd_bus* bus = static_cast<sd_bus*>(userdata);
+  boost::intrusive_ptr<task::Broker<task::DBusConnection>> broker{static_cast<task::Broker<task::DBusConnection>*>(userdata)};
+  broker.run(key, [](bool success){
+      });
+  boost::intrusive_ptr<TaskType const> run(statefultask::BrokerKey const& key, std::function<void(bool)>&& callback);
   ret = sd_bus_emit_signal(bus, objectPath, interfaceName, "concatenated", "s", result.c_str());
   if (ret < 0)
     THROW_ALERTC(-ret, "sd_bus_emit_signal");
+#endif
 
   return 0;
 }
 
-/* The vtable of our little object, implements the net.poettering.Calculator interface */
-static const sd_bus_vtable concatenator_vtable[] = {
+// The vtable of our little object, implements the org.sdbuscpp.Concatenator interface.
+static sd_bus_vtable const concatenator_vtable[] = {
   SD_BUS_VTABLE_START(0),
   SD_BUS_METHOD("concatenate", "ais", "s", method_concatenate, SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_VTABLE_END
@@ -73,69 +96,71 @@ int main()
   Debug(debug::init());
   Dout(dc::notice, "Entering main()");
 
-  // Create D-Bus connection to the system bus and requests name on it.
-  char const* serviceName   = "org.sdbuscpp.concatenator";
-  char const* objectPath    = "/org/sdbuscpp/concatenator";
-  char const* interfaceName = "org.sdbuscpp.Concatenator";
+  // Create a AIMemoryPagePool object (must be created before thread_pool).
+  [[maybe_unused]] AIMemoryPagePool mpp;
 
-  sd_bus_slot* slot = nullptr;
-  sd_bus* bus       = nullptr;
+  // Set up the thread pool for the application.
+  int const number_of_threads = 8;                      // Use a thread pool of 8 threads.
+  int const max_number_of_threads = 16;                 // This can later dynamically be increased to 16 if needed.
+  int const queue_capacity = number_of_threads;
+  int const reserved_threads = 1;                       // Reserve 1 thread for each priority.
+  // Create the thread pool.
+  AIThreadPool thread_pool(number_of_threads, max_number_of_threads);
+  Debug(thread_pool.set_color_functions([](int color){ std::string code{"\e[30m"}; code[3] = '1' + color; return code; }));
+  // And the thread pool queues.
+  [[maybe_unused]] AIQueueHandle high_priority_queue   = thread_pool.new_queue(queue_capacity, reserved_threads);
+  [[maybe_unused]] AIQueueHandle medium_priority_queue = thread_pool.new_queue(queue_capacity, reserved_threads);
+                   AIQueueHandle low_priority_queue    = thread_pool.new_queue(queue_capacity);
 
+  // Main application begin.
   try
   {
-    // Connect to the user bus.
-    int r = sd_bus_open_user(&bus);
-    if (r < 0)
-    {
-      std::cerr << "Failed to connect to session bus: " << std::strerror(-r) << std::endl;
-      goto finish;
-    }
+    // Set up the I/O event loop.
+    evio::EventLoop event_loop(low_priority_queue, "\e[36m", "\e[0m");
+    resolver::Scope resolver_scope(low_priority_queue, false);
+
+    using statefultask::create;
+
+    // Brokers are not singletons, but this object could be shared between multiple threads.
+    auto broker = create<task::Broker<task::DBusConnection>>(CWDEBUG_ONLY(true));
+    // The broker never finishes, unless abort() is called on it.
+    broker->run(low_priority_queue);
+
+    dbus::DBusConnectionBrokerKey broker_key;
+    broker_key.request_service_name("org.sdbuscpp.concatenator");
+
+    // Set service name, object name, interface and method.
+    dbus::Interface const interface("org.sdbuscpp.concatenator", "/org/sdbuscpp/concatenator", "org.sdbuscpp.Concatenator");
 
     // Install the object.
-    r = sd_bus_add_object_vtable(bus, &slot, objectPath, interfaceName, concatenator_vtable, bus);
-    if (r < 0)
     {
-      std::cerr << "Failed to issue method call: " << std::strerror(-r) << std::endl;
-      goto finish;
+      auto dbus_object = create<task::DBusObject>(CWDEBUG_ONLY(true));
+      // It's ok to pass broker, broker_key and interface as a pointers here, because their life time is longer than the life time of dbus_object.
+      dbus_object->set_interface(broker, &broker_key, &interface);
+      // The task::DBusObject stores a boost::intrusive_ptr to the broker, so it is save to pass
+      // the broker as a void* userdata.
+      dbus_object->add_vtable(concatenator_vtable, broker.get());
+      dbus_object->run([](bool success){ Dout(dc::notice, "task::DBusObject " << (success ? "successful!" : "failed!")); });
     }
 
-    r = sd_bus_request_name(bus, serviceName, 0);
-    if (r < 0)
-    {
-      std::cerr << "Failed to acquire service name: " << std::strerror(-r) << std::endl;
-      goto finish;
-    }
+    // Allow the broker to establish a connection.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    for (;;)
-    {
-      // Process requests.
-      r = sd_bus_process(bus, nullptr);
-      if (r < 0)
-      {
-        std::cerr << "Failed to process bus: " << std::strerror(-r) << std::endl;
-        goto finish;
-      }
-      if (r > 0)  // We processed a request, try to process another one, right-away.
-        continue;
+    // Stop the broker task.
+//    broker->abort();
 
-      // Wait for the next request to process.
-      r = sd_bus_wait(bus, (uint64_t)-1);
-      if (r < 0)
-      {
-        std::cerr << "Failed to wait on bus: " << std::strerror(-r) << std::endl;
-        goto finish;
-      }
-    }
+    Dout(dc::warning, "Leaving main thread scope -- does this cause program termination?");
 
+    // Print stuff...
+    Debug(tracked::intrusive_ptr<task::DBusConnection>::for_each([](tracked::intrusive_ptr<task::DBusConnection> const* p){ Dout(dc::notice, p); }));
+
+    // Application terminated cleanly.
+    event_loop.join();
   }
   catch (AIAlert::Error const& error)
   {
-    Dout(dc::warning, error);
+    Dout(dc::warning, error << " [caught in server_side_concatenate_test.cxx].");
   }
-
-finish:
-  sd_bus_slot_unref(slot);
-  sd_bus_unref(bus);
 
   Dout(dc::notice, "Leaving main()");
 }

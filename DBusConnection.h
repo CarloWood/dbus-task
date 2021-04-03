@@ -15,7 +15,7 @@ class DBusConnectionData
  protected:
   // Input variables.
   std::string m_service_name;                                   // Requested "well known" service name, if any (if this is a service).
-  int m_flags;                                                  // Flags specifying how to handle duplicated serive name requests.
+  int m_flags;                                                  // Flags specifying how to handle duplicated service name requests.
   bool m_use_system_bus;                                        // Use system bus if true, user bus otherwise.
 
   // Set m_flags to zero because when request_service_name is
