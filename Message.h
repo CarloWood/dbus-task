@@ -6,6 +6,7 @@
 #include <systemd/sd-bus.h>
 #include <iterator>
 #include <algorithm>
+#include <iterator>
 #include "debug.h"
 
 namespace dbus {
@@ -131,6 +132,11 @@ class MessageRead : public MessageConst
   MessageRead& operator=(MessageRead&& message) { return static_cast<MessageRead&>(MessageConst::operator=(std::move(message))); }
   MessageRead& operator=(sd_bus_message* message) { this->MessageConst::operator=(message); return *this; }
 
+  bool is_method_call(char const* interface, char const* member) const
+  {
+    return sd_bus_message_is_method_call(m_message, interface, member);
+  }
+
   bool at_end(bool complete = true) const
   {
     int ret = sd_bus_message_at_end(m_message, complete);
@@ -138,8 +144,8 @@ class MessageRead : public MessageConst
     ASSERT(ret >= 0);
     return ret;
   }
-  void enter_container(char type, char const* contents) { sd_bus_message_enter_container(m_message, type, contents); }
-  void exit_container() { sd_bus_message_exit_container(m_message); }
+  void enter_container(char type, char const* contents) const { sd_bus_message_enter_container(m_message, type, contents); }
+  void exit_container() const { sd_bus_message_exit_container(m_message); }
 
   MessageRead const& operator>>(uint8_t& n) const
   {
@@ -178,6 +184,9 @@ class MessageRead : public MessageConst
   MessageRead const& operator>>(int32_t& n) const
   {
     int ret = sd_bus_message_read(m_message, "i", &n);
+    // Do not try to read something that isn't there.
+    // Call at_end(false) before trying to read from a container.
+    ASSERT(ret != 0);
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_message_read");
     return *this;
@@ -225,14 +234,23 @@ class MessageRead : public MessageConst
     return *this;
   }
 
-  std::pair<char, bool> peek_type() const
+  template<typename CONTAINER>
+  MessageRead const& operator>>(std::back_insert_iterator<CONTAINER> bi) const;
+
+  bool peek_type(char& type, char const*& contents) const
   {
-    char type;
-    char const* contents;
     int ret = sd_bus_message_peek_type(m_message, &type, &contents);
     // Bug in program.
     ASSERT(ret >= 0);
-    return { type, ret };
+    return ret;
+  }
+
+  bool peek_type(char& type) const
+  {
+    int ret = sd_bus_message_peek_type(m_message, &type, nullptr);
+    // Bug in program.
+    ASSERT(ret >= 0);
+    return ret;
   }
 
   operator sd_bus_message*() const { return m_message; }
@@ -250,17 +268,42 @@ template<> char get_type<uint64_t>();
 template<> char get_type<double>();
 template<> char get_type<std::string>();
 
+template<typename CONTAINER>
+MessageRead const& MessageRead::operator>>(std::back_insert_iterator<CONTAINER> bi) const
+{
+  char type;
+  char const* contents;
+  bool have_data = peek_type(type, contents);
+  // Only arrays are supported at the moment.
+  if (!have_data)
+    THROW_FALERT("Received dbus message with unexpected end of content, expected array.");
+  if (type != 'a')
+    THROW_FALERT("Received dbus message with unsupported type [TYPE], expected array.", AIArgs("[TYPE]", type));
+  enter_container(type, contents);
+  if (dbus::get_type<typename CONTAINER::value_type>() != contents[0])
+    THROW_FALERT("Dbus message with unexpected array contents [CONTENTS], expected [TYPE].", AIArgs("CONTENTS]", contents[0])("[TYPE]", dbus::get_type<typename CONTAINER::value_type>()));
+  while (!at_end(false))
+  {
+    typename CONTAINER::value_type data;
+    *this >> data;
+    bi = data;
+  }
+  exit_container();
+  return *this;
+}
+
 class Message : public MessageRead
 {
  public:
   Message() = default;
+  using MessageRead::MessageRead;
 
   void create_message(boost::intrusive_ptr<task::DBusConnection const> const& dbus_connection, Destination const& destination)
   {
     // Only call this after using the default constructor.
     ASSERT(m_message == nullptr);
     // This should be called from task::DBusMethodCall only after the DBusConnection is finished.
-    ASSERT(dbus_connection->finished());
+    ASSERT(dbus_connection->finished() && !dbus_connection->aborted());
     int ret = sd_bus_message_new_method_call(dbus_connection->get_bus(), &m_message,
         destination.service_name(), destination.object_path(), destination.interface_name(), destination.method_name());
     if (ret < 0)
@@ -318,6 +361,18 @@ class Message : public MessageRead
     if (res < 0)
       THROW_ALERTC(-res, "sd_bus_message_append_basic");
     return *this;
+  }
+
+  void reply_method_return(std::string const& result)
+  {
+    int ret = sd_bus_reply_method_return(m_message, "s", result.c_str());
+    if (ret < 0)
+      THROW_ALERTC(-ret, "sd_bus_reply_method_return");
+  }
+
+  sd_bus* get_bus() const
+  {
+    return sd_bus_message_get_bus(m_message);
   }
 };
 

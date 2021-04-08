@@ -49,6 +49,7 @@ target_sources(dbus-task_ObjLib
     "Error.h"
     "ErrorDomainManager.cxx"
     "ErrorDomainManager.h"
+    "ErrorException.h"
     "Message.cxx"
     "Message.h"
 )

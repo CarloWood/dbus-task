@@ -60,6 +60,10 @@ class Error : protected ErrorConst
 
   // Convert Error to an error_code.
   operator std::error_code() const;
+
+  // Back to sd_bus_error* variable.
+  void copy_to(sd_bus_error* output) const { sd_bus_error_copy(output, &m_error); }
+  void move_to(sd_bus_error* output) && { sd_bus_error_move(output, &m_error); }
 };
 
 inline std::ostream& operator<<(std::ostream& os, Error const& error) { error.print_on(os); return os; }

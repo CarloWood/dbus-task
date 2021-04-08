@@ -3,6 +3,7 @@
 #include "dbus-task/DBusConnection.h"
 #include "dbus-task/DBusConnectionBrokerKey.h"
 #include "dbus-task/DBusObject.h"
+#include "dbus-task/Error.h"
 #include "dbus-task/Interface.h"
 #include "statefultask/AIStatefulTask.h"
 #include "statefultask/DefaultMemoryPagePool.h"
@@ -23,73 +24,50 @@
 
 #include <systemd/sd-bus.h>
 
-static int method_concatenate(sd_bus_message* m, void* userdata, sd_bus_error* ret_error)
+namespace dbus {
+static constexpr ErrorConst no_numbers_error = { SD_BUS_ERROR_MAKE_CONST("org.sdbuscpp.Concatenator.Error.NoNumbers", "No numbers provided") };
+} // namespace dbus
+
+class MyDBusObject : public task::DBusObject
 {
-  DoutEntering(dc::notice, "method_concatenate(" << m << ", " << userdata << ", ret_error)");
+  using DBusObject::DBusObject;
 
-  // Deserialize the collection of numbers from the message.
-  std::vector<int> numbers;
+  bool object_callback(dbus::Message message) override;
 
-  int ret = sd_bus_message_enter_container(m, 'a', "i");
-  if (ret < 0)
-    THROW_ALERTC(-ret, "sd_bus_message_enter_container");
-
-  for (;;)
+  std::string concatenate(sd_bus* bus, std::vector<int32_t> const& numbers, std::string const& separator)
   {
-    int n;
-    ret = sd_bus_message_read(m, "i", &n);
+    DoutEntering(dc::notice, "MyDBusObject::concatenate(" << numbers << ", " << "\"" << separator << "\")");
+    if (numbers.empty())
+      throw dbus::Error(dbus::no_numbers_error);
+    std::string result;
+    for (auto number : numbers)
+      result += (result.empty() ? std::string() : separator) + std::to_string(number);
+
+    // Send a signal that we catenated something successfully.
+    Dout(dc::notice, "Calling sd_bus_emit_signal(" << get_interface() << ", \"" << result << "\")");
+    int ret = sd_bus_emit_signal(bus, get_interface()->object_path(), get_interface()->interface_name(), "concatenated", "s", result.c_str());
     if (ret < 0)
-      THROW_ALERTC(-ret, "sd_bus_message_read");
-    if (ret == 0)
-      break;
-    numbers.push_back(n);
+      THROW_ALERTC(-ret, "sd_bus_emit_signal");
+
+    return result;
   }
-
-  ret = sd_bus_message_exit_container(m);
-  if (ret < 0)
-    THROW_ALERTC(-ret, "sd_bus_message_exit_container");
-
-  if (numbers.empty())
-  {
-    sd_bus_error_set(ret_error, "org.sdbuscpp.Concatenator.Error.NoNumbers", "No numbers provided");
-    return 0;
-  }
-
-  char const* separator;
-  ret = sd_bus_message_read(m, "s", &separator);
-  if (ret < 0)
-    THROW_ALERTC(-ret, "sd_bus_message_read");
-
-  std::string result;
-  for (auto number : numbers) { result += (result.empty() ? std::string() : separator) + std::to_string(number); }
-
-  ret = sd_bus_reply_method_return(m, "s", result.c_str());
-  if (ret < 0)
-    THROW_ALERTC(-ret, "sd_bus_reply_method_return");
-
-#if 0
-  // Emit 'concatenated' signal
-  char const* objectPath    = "/org/sdbuscpp/concatenator";
-  char const* interfaceName = "org.sdbuscpp.Concatenator";
-
-  boost::intrusive_ptr<task::Broker<task::DBusConnection>> broker{static_cast<task::Broker<task::DBusConnection>*>(userdata)};
-  broker.run(key, [](bool success){
-      });
-  boost::intrusive_ptr<TaskType const> run(statefultask::BrokerKey const& key, std::function<void(bool)>&& callback);
-  ret = sd_bus_emit_signal(bus, objectPath, interfaceName, "concatenated", "s", result.c_str());
-  if (ret < 0)
-    THROW_ALERTC(-ret, "sd_bus_emit_signal");
-#endif
-
-  return 0;
-}
-
-// The vtable of our little object, implements the org.sdbuscpp.Concatenator interface.
-static sd_bus_vtable const concatenator_vtable[] = {
-  SD_BUS_VTABLE_START(0),
-  SD_BUS_METHOD("concatenate", "ais", "s", method_concatenate, SD_BUS_VTABLE_UNPRIVILEGED),
-  SD_BUS_VTABLE_END
 };
+
+bool MyDBusObject::object_callback(dbus::Message message)
+{
+  DoutEntering(dc::notice, "MyDBusObject::object_callback()");
+  if (message.is_method_call("org.sdbuscpp.Concatenator", "concatenate"))
+  {
+    std::vector<int32_t> numbers;
+    message >> std::back_insert_iterator(numbers);
+    std::string separator;
+    message >> separator;
+    std::string result = concatenate(message.get_bus(), numbers, separator);
+    message.reply_method_return(result);
+    return true;
+  }
+  return false;
+}
 
 int main()
 {
@@ -134,13 +112,13 @@ int main()
 
     // Install the object.
     {
-      auto dbus_object = create<task::DBusObject>(CWDEBUG_ONLY(true));
+      auto dbus_object = create<MyDBusObject>(CWDEBUG_ONLY(true));
       // It's ok to pass broker, broker_key and interface as a pointers here, because their life time is longer than the life time of dbus_object.
       dbus_object->set_interface(broker, &broker_key, &interface);
       // The task::DBusObject stores a boost::intrusive_ptr to the broker, so it is save to pass
       // the broker as a void* userdata.
-      dbus_object->add_vtable(concatenator_vtable, broker.get());
-      dbus_object->run([](bool success){ Dout(dc::notice, "task::DBusObject " << (success ? "successful!" : "failed!")); });
+      dbus_object->set_userdata(broker.get());
+      dbus_object->run([&dbus_object](bool success){ Dout(dc::notice, "task::DBusObject " << (success ? "successful!" : "failed!")); if (success) dbus_object->run(); });
     }
 
     // Allow the broker to establish a connection.

@@ -3,6 +3,7 @@
 #include "Message.h"
 #include "DBusConnectionBrokerKey.h"
 #include "Interface.h"
+#include "Error.h"
 #include "statefultask/Broker.h"
 #include "debug.h"
 
@@ -16,7 +17,6 @@ class DBusObject : public AIStatefulTask
   dbus::Interface const* m_interface;
   std::function<void(dbus::MessageRead const&)> m_object_callback;
   boost::intrusive_ptr<task::DBusConnection const> m_dbus_connection;
-  sd_bus_vtable const* m_vtable;
   sd_bus_slot* m_slot;
   void* m_userdata;
 
@@ -27,7 +27,7 @@ class DBusObject : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusObject_state_type {
     DBusObject_start = direct_base_type::state_end,
-    DBusObject_add_vtable,
+    DBusObject_add_object,
     DBusObject_done
   };
 
@@ -52,20 +52,39 @@ class DBusObject : public AIStatefulTask
     m_interface = interface;
   }
 
-  // The Interface object must have a life-time longer than the time it takes to finish task::DBusConnection.
-  void add_vtable(sd_bus_vtable const* vtable, void* userdata)
+  dbus::Interface const* get_interface() const
   {
-    m_vtable = vtable;
+    return m_interface;
+  }
+
+  // The Interface object must have a life-time longer than the time it takes to finish task::DBusConnection.
+  void set_userdata(void* userdata)
+  {
     m_userdata = userdata;
   }
 
- private:
-  void object_callback(dbus::MessageRead const& message);
-
-  static int object_callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
+  void stop()
   {
-    static_cast<DBusObject*>(userdata)->object_callback(m);
-    return 0;
+    signal(2);
+  }
+
+ private:
+  virtual bool object_callback(dbus::Message message) = 0;
+
+  static int s_object_callback(sd_bus_message* m, void* userdata, sd_bus_error* ret_error)
+  {
+    int handled;
+    DBusObject* self = static_cast<DBusObject*>(userdata);
+    try
+    {
+      handled = self->object_callback(m);
+    }
+    catch (dbus::Error& error)
+    {
+      std::move(error).move_to(ret_error);
+      return 0;
+    }
+    return handled;
   }
 
  protected:

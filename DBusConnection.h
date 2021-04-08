@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Connection.h"
+#include "Interface.h"
 #include "statefultask/AIStatefulTask.h"
 #include "debug.h"
 #include <iomanip>
@@ -128,8 +129,14 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
     return m_connection->get_unique_name();
   }
 
-  //FIXME: remove this
-  sd_bus* get_bus() const { return m_connection->get_bus(); }
+  /// Return the underlaying sd_bus* of this connection.
+  /// Only valid after the task successfully finished.
+  sd_bus* get_bus() const
+  {
+    // The task must be successfully finished before you call this function.
+    ASSERT(finished() && !aborted());
+    return m_connection->get_bus();
+  }
 
  protected:
   /// Call finish() (or abort()), not delete.
