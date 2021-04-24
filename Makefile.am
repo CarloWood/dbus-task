@@ -5,8 +5,26 @@ SUBDIRS =
 noinst_LTLIBRARIES = libdbustask.la
 
 SOURCES = \
-	Client.h \
-	Client.cxx
+    Connection.cxx \
+    Connection.h \
+    DBusConnection.cxx \
+    DBusConnection.h \
+    DBusMatchSignal.h \
+    DBusMatchSignal.cxx \
+    DBusMethodCall.cxx \
+    DBusMethodCall.h \
+    DBusObject.cxx \
+    DBusObject.h \
+    Error.cxx \
+    Error.h \
+    ErrorDomainManager.cxx \
+    ErrorDomainManager.h \
+    ErrorException.h \
+    Message.cxx \
+    Message.h \
+\
+    systemd_sd-bus.cxx \
+    systemd_sd-bus.h
 
 libdbustask_la_SOURCES = ${SOURCES}
 libdbustask_la_CXXFLAGS = @LIBCWD_R_FLAGS@

@@ -52,6 +52,9 @@ target_sources(dbus-task_ObjLib
     "ErrorException.h"
     "Message.cxx"
     "Message.h"
+
+    "systemd_sd-bus.cxx"
+    "systemd_sd-bus.h"
 )
 
 # Required include search-paths.

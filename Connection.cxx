@@ -7,19 +7,27 @@ namespace dbus {
 void Connection::handle_dbus_io(int current_flags)
 {
 #ifdef CWDEBUG
-  int is_inside = m_inside_handle_dbus_io.fetch_add(1, std::memory_order_relaxed);
-  ASSERT(!is_inside);
-  auto&& leaving = at_scope_end([this]{ m_inside_handle_dbus_io.fetch_sub(1, std::memory_order_relaxed); });
+  ASSERT(m_magic == 0x12345678abcdef99);
+  dbus::lock(m_bus);
 #endif
   int ret;
   do
   {
     ret = sd_bus_process(m_bus, nullptr);
+    ASSERT(m_magic == 0x12345678abcdef99);
     if (ret < 0)
+    {
+#ifdef CWDEBUG
+      dbus::unlock(m_bus);
+#endif
       THROW_ALERTC(-ret, "sd_bus_process");
+    }
   }
   while (ret);
   int flags = sd_bus_get_events(m_bus);
+#ifdef CWDEBUG
+  dbus::unlock(m_bus);
+#endif
   // If POLLOUT is set, reset POLLIN.
   flags &= ~((flags & POLLOUT) ? POLLIN : 0);
   // Here is what we want:

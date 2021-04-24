@@ -15,7 +15,7 @@
 #include "statefultask/Broker.h"
 #include "evio/EventLoop.h"
 #include "resolver-task/DnsResolver.h"
-#include "threadsafe/Gate.h"
+#include "utils/threading/Gate.h"
 #include "threadpool/AIThreadPool.h"
 #include "utils/debug_ostream_operators.h"
 #include "debug.h"
@@ -27,6 +27,11 @@
 #include <string>
 #include <vector>
 
+constexpr int loop_size = 300000;
+std::atomic_int signal_counter(0);
+
+namespace utils { using namespace threading; }
+
 void on_signal_concatenated(dbus::MessageRead const& message)
 {
   DoutEntering(dc::notice, "on_signal_concatenated(message)");
@@ -37,9 +42,9 @@ void on_signal_concatenated(dbus::MessageRead const& message)
 }
 
 // Open the gate to terminate application.
-aithreadsafe::Gate gate;
+utils::Gate gate;
 
-void on_reply_concatenate(dbus::MessageRead const& message)
+void on_reply_concatenate(dbus::MessageRead const& message, std::string expected_result)
 {
   DoutEntering(dc::notice, "on_reply_concatenate(message)");
   bool is_error = message.is_method_error();
@@ -51,14 +56,15 @@ void on_reply_concatenate(dbus::MessageRead const& message)
     std::error_code error_code = dbus_error;
     Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "]");
 
-    gate.open();
+    if (signal_counter++ == loop_size - 1)
+      gate.open();
   }
   else
   {
     std::string result;
     message >> result;
-    Dout(dc::notice, "result = \"" << result << "\".");
-    assert(result == "1:2:3");
+    Dout(dc::notice, "result = \"" << result << "\", expected_result = \"" << expected_result << "\".");
+    assert(result == expected_result);
   }
 }
 
@@ -103,7 +109,7 @@ int main()
     broker->run(low_priority_queue);
 
     dbus::DBusConnectionBrokerKey broker_key;
-    broker_key.request_service_name("com.alinoe.concatenator");
+//    broker_key.request_service_name("com.alinoe.concatenator");
 
     // Set service name, object name, interface and method.
     dbus::Destination const destination("org.sdbuscpp.concatenator", "/org/sdbuscpp/concatenator", "org.sdbuscpp.Concatenator", "concatenate");
@@ -117,29 +123,33 @@ int main()
       dbus_match_signal->run([](bool success){ Dout(dc::notice, "task::DBusMatchSignal " << (success ? "successful!" : "failed!")); });
     }
 
-    std::vector<int32_t> const numbers = {1, 2, 3};
     std::string const separator = ":";
-
-    // Invoke concatenate on given interface of the object.
+    for (int k = 1; k < loop_size * 3; k += 3)
     {
-      auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
-      // It's ok to pass broker, broker_key and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
-      dbus_method_call->set_destination(broker, &broker_key, &destination);
-      // Pass numbers and separator by reference, because their life time is longer than the life time of dbus_method_call.
-      dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.end()).append(separator); });
-      dbus_method_call->set_reply_callback([](dbus::MessageRead const& message) { on_reply_concatenate(message); });
-      dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
-    }
+      std::vector<int32_t> const numbers = {k, k + 1, k + 2};
+      std::string const expected_result = std::to_string(k) + ":" + std::to_string(k + 1) + ":" + std::to_string(k + 2);
 
-    // Invoke concatenate again, this time with no numbers and we shall get an error
-    {
-      auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
-      // It's ok to pass broker and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
-      dbus_method_call->set_destination(broker, &broker_key, &destination);
-      // Pass no numbers.
-      dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.begin()).append(separator); });
-      dbus_method_call->set_reply_callback([](dbus::MessageRead const& message) { on_reply_concatenate(message); });
-      dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
+      // Invoke concatenate on given interface of the object.
+      {
+        auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
+        // It's ok to pass broker, broker_key and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
+        dbus_method_call->set_destination(broker, &broker_key, &destination);
+        // Pass separator by reference, because their life time is longer than the life time of dbus_method_call.
+        dbus_method_call->set_params_callback([&separator, numbers](dbus::Message& message) { message.append(numbers.begin(), numbers.end()).append(separator); });
+        dbus_method_call->set_reply_callback([expected_result](dbus::MessageRead const& message) { on_reply_concatenate(message, expected_result); });
+        dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
+      }
+
+      // Invoke concatenate again, this time with no numbers and we shall get an error
+      {
+        auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));
+        // It's ok to pass broker and destination as a pointers here, because their life time is longer than the life time of dbus_method_call.
+        dbus_method_call->set_destination(broker, &broker_key, &destination);
+        // Pass no numbers.
+        dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.begin()).append(separator); });
+        dbus_method_call->set_reply_callback([](dbus::MessageRead const& message) { on_reply_concatenate(message, ""); });
+        dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
+      }
     }
 
     // Wait until we received the error for the last method call.

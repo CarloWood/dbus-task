@@ -57,12 +57,17 @@ class DBusMethodCall : public AIStatefulTask
     m_reply_callback = std::move(reply_callback);
   }
 
+#ifdef CWDEBUG
+  bool is_same_bus(sd_bus* bus) const { return m_dbus_connection->get_bus() == bus; }
+#endif
+
  private:
   void reply_callback(dbus::MessageRead const& message);
 
   static int reply_callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
   {
-    static_cast<DBusMethodCall*>(userdata)->reply_callback(m);
+    DBusMethodCall* self = static_cast<DBusMethodCall*>(userdata);
+    self->reply_callback({m, self->m_dbus_connection->get_bus()});
     return 0;
   }
 
@@ -78,6 +83,9 @@ class DBusMethodCall : public AIStatefulTask
 
   /// Handle mRunState.
   void multiplex_impl(state_type run_state) override;
+
+  /// Called for base state @ref bs_abort.
+  void abort_impl() override;
 };
 
 } //namespace task

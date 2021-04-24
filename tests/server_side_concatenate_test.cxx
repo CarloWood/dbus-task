@@ -8,6 +8,7 @@
 #include "statefultask/AIStatefulTask.h"
 #include "statefultask/DefaultMemoryPagePool.h"
 #include "statefultask/Broker.h"
+#include "statefultask/AIStatefulTaskMutex.h"
 #include "evio/EventLoop.h"
 #include "threadpool/AIThreadPool.h"
 #include "resolver-task/DnsResolver.h"
@@ -22,7 +23,7 @@
 #include <string>
 #include <vector>
 
-#include <systemd/sd-bus.h>
+#include "dbus-task/systemd_sd-bus.h"
 
 namespace dbus {
 static constexpr ErrorConst no_numbers_error = { SD_BUS_ERROR_MAKE_CONST("org.sdbuscpp.Concatenator.Error.NoNumbers", "No numbers provided") };
@@ -44,6 +45,15 @@ class MyDBusObject : public task::DBusObject
       result += (result.empty() ? std::string() : separator) + std::to_string(number);
 
     // Send a signal that we catenated something successfully.
+    // It is safe to call sd_bus_emit_signal because the connection that this bus is associated with is already locked:
+    // this is a callback initiated from the sdbus library.
+#ifdef CWDEBUG
+    // This should never fail because bus (which should be message.get_bus(), the received method call) is expected
+    // to be the same as the bus that was used to register the service to receive that method call in the first place.
+    ASSERT(is_same_bus(bus));
+    // This should never fail because we are in a callback initiated from the sdbus library.
+//FIXME    ASSERT(is_self_locked());
+#endif
     Dout(dc::notice, "Calling sd_bus_emit_signal(" << get_interface() << ", \"" << result << "\")");
     int ret = sd_bus_emit_signal(bus, get_interface()->object_path(), get_interface()->interface_name(), "concatenated", "s", result.c_str());
     if (ret < 0)
@@ -75,7 +85,7 @@ int main()
   Dout(dc::notice, "Entering main()");
 
   // Create a AIMemoryPagePool object (must be created before thread_pool).
-  [[maybe_unused]] AIMemoryPagePool mpp;
+  AIMemoryPagePool mpp;
 
   // Set up the thread pool for the application.
   int const number_of_threads = 8;                      // Use a thread pool of 8 threads.

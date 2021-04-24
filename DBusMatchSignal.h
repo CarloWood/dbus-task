@@ -11,11 +11,15 @@ namespace task {
 class DBusMatchSignal : public AIStatefulTask
 {
  private:
+  static constexpr condition_type connection_set_up = 1;
+  static constexpr condition_type connection_locked = 2;
+
   dbus::DBusConnectionBrokerKey m_broker_key;
   boost::intrusive_ptr<task::Broker<task::DBusConnection>> m_broker;
   dbus::Destination const* m_destination;
   std::function<void(dbus::MessageRead const&)> m_match_callback;
   boost::intrusive_ptr<task::DBusConnection const> m_dbus_connection;
+  sd_bus_slot* m_slot;
 
  protected:
   /// The base class of this task.
@@ -24,7 +28,8 @@ class DBusMatchSignal : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusMatchSignal_state_type {
     DBusMatchSignal_start = direct_base_type::state_end,
-    DBusMatchSignal_create_message,
+    DBusMatchSignal_lock1,
+    DBusMatchSignal_locked1,
     DBusMatchSignal_done
   };
 
@@ -54,12 +59,17 @@ class DBusMatchSignal : public AIStatefulTask
     m_broker_key.set_use_system_bus(use_system_bus);
   }
 
+#ifdef CWDEBUG
+  bool is_same_bus(sd_bus* bus) const { return m_dbus_connection->get_bus() == bus; }
+#endif
+
  private:
   void match_callback(dbus::MessageRead const& message);
 
   static int match_callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(empty_error))
   {
-    static_cast<DBusMatchSignal*>(userdata)->match_callback(m);
+    DBusMatchSignal* self = static_cast<DBusMatchSignal*>(userdata);
+    self->match_callback({m, self->m_dbus_connection->get_bus()});
     return 0;
   }
 
@@ -73,8 +83,14 @@ class DBusMatchSignal : public AIStatefulTask
   /// Implemenation of state_str for run states.
   char const* state_str_impl(state_type run_state) const override;
 
+  /// Run bs_initialize.
+  void initialize_impl() override;
+
   /// Handle mRunState.
   void multiplex_impl(state_type run_state) override;
+
+  /// Called for base state @ref bs_abort.
+  void abort_impl() override;
 };
 
 } //namespace task

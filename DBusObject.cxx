@@ -1,5 +1,5 @@
 #include "sys.h"
-#include <systemd/sd-bus.h>
+#include "systemd_sd-bus.h"
 #include "DBusObject.h"
 
 namespace task {
@@ -36,8 +36,11 @@ void DBusObject::multiplex_impl(state_type run_state)
     }
     case DBusObject_add_object:
     {
+      DBusMutex m{m_dbus_connection};
+      std::unique_lock<DBusMutex> lk(m);
       Dout(dc::notice, "Unique name = \"" << m_dbus_connection->get_unique_name() << "\".");
       int res = sd_bus_add_object(m_dbus_connection->get_bus(), &m_slot, m_interface->object_path(), &DBusObject::s_object_callback, this);
+      lk.unlock();
       if (res < 0)
         THROW_ALERTC(-res, "sd_bus_add_object");
       set_state(DBusObject_done);
@@ -50,11 +53,14 @@ void DBusObject::multiplex_impl(state_type run_state)
   }
 }
 
-void DBusObject::finish_impl()
+void DBusObject::abort_impl()
 {
   if (m_slot)
   {
-    // Make sure DBusObject::s_*_callback is never called (in case we get here after an abort()).
+    ASSERT(m_dbus_connection->get_bus());
+    DBusMutex m{m_dbus_connection};
+    std::unique_lock<DBusMutex> lk(m);
+    // Make sure DBusObject::s_*_callback is no longer called.
     sd_bus_slot_unref(m_slot);
     m_slot = nullptr;
   }

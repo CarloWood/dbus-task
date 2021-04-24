@@ -92,11 +92,19 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
  private:
   // Wrapped data.
   boost::intrusive_ptr<dbus::Connection> m_connection;          // Pointer to the Connection that is being used.
+  mutable AIStatefulTaskMutex m_mutex;
 
   // Internal usage:
   sd_bus_slot* m_slot;                                          // To cancel a connection upon abort.
   sd_bus_message* m_request_name_async_callback_message;        // To tranfer service name request reply message from request_name_async_callback
                                                                 // to state machine (DBusConnection_wait_for_request_name_result).
+#ifdef CWDEBUG
+  // THIS IS A KLUDGE. It restricts the total number of DBusConnectionData
+  // objects to one, so that I can use a global/static variable to track
+  // sd_bus object state.
+  static std::atomic_int s_created;
+#endif
+
  protected:
   /// The base class of this task.
   using direct_base_type = AIStatefulTask;
@@ -116,10 +124,21 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   DBusConnection(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusConnection() [" << (void*)this << "]");
+    bool created = s_created++; ASSERT(!created);
   }
 
   /// Return the service name that was requested with request_service_name.
   std::string const& service_name() const { return m_service_name; }
+
+  bool lock(AIStatefulTask* task, condition_type condition) const
+  {
+    return m_mutex.lock(task, condition);
+  }
+
+  void unlock() const
+  {
+    m_mutex.unlock();
+  }
 
   /// Return the unique name of this connection.
   std::string get_unique_name() const
@@ -166,6 +185,23 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   // This is the callback for sd_bus_request_name_async.
   static int s_request_name_async_callback(sd_bus_message* m, void* userdata, sd_bus_error* ret_error);
   int request_name_async_callback(sd_bus_message* m);
+};
+
+class DBusMutex
+{
+ private:
+  DBusConnection const* m_connection;
+
+ public:
+  DBusMutex(boost::intrusive_ptr<DBusConnection const> const& connection) : m_connection(connection.get()) { }
+
+  void lock()
+  {
+  }
+
+  void unlock()
+  {
+  }
 };
 
 } // namespace task

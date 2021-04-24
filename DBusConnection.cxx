@@ -27,19 +27,21 @@ void DBusConnection::initialize_impl()
 //  ASSERT(!default_is_immediate());
 }
 
-int DBusConnection::request_name_async_callback(sd_bus_message* m)
+int DBusConnection::request_name_async_callback(sd_bus_message* message)
 {
-  sd_bus_message_ref(m);
-  m_request_name_async_callback_message = m;
+  sd_bus_message_ref(message);
+  m_request_name_async_callback_message = message;
   signal(1);
   return 0;
 }
 
-int DBusConnection::s_request_name_async_callback(sd_bus_message* m, void* userdata, sd_bus_error* UNUSED_ARG(ret_error))
+int DBusConnection::s_request_name_async_callback(sd_bus_message* message, void* userdata, sd_bus_error* UNUSED_ARG(ret_error))
 {
-  return static_cast<DBusConnection*>(userdata)->request_name_async_callback(m);
+  return static_cast<DBusConnection*>(userdata)->request_name_async_callback(message);
 }
 
+// The sd_bus that is created by this task can not be used by other tasks until this tasked finished.
+// Therefore it is not needed to do connection/bus locking.
 void DBusConnection::multiplex_impl(state_type run_state)
 {
   switch (run_state)
@@ -49,6 +51,7 @@ void DBusConnection::multiplex_impl(state_type run_state)
       // This call could be blocking if the environment variable DBUS_SESSION_BUS_ADDRESS is
       // set to point to remote connection. In that case libsystemd will resolve the host
       // name and blocking connect to the socket using ssh :/.
+      AI_REACHED_ONCE;
       if (m_use_system_bus)
         m_connection->connect_system("DBusConnection - system");
       else
@@ -116,5 +119,9 @@ void DBusConnectionData::initialize(DBusConnection& dbus_connection) const
     dbus_connection.request_service_name(m_service_name, m_flags);
   dbus_connection.set_use_system_bus(m_use_system_bus);
 }
+
+#ifdef CWDEBUG
+std::atomic_int DBusConnection::s_created;
+#endif
 
 } // namespace task

@@ -5,7 +5,7 @@
 #include "evio/RawOutputDevice.h"
 #include "utils/AIAlert.h"
 #include "utils/at_scope_end.h"
-#include <systemd/sd-bus.h>
+#include "systemd_sd-bus.h"
 #include <memory>
 #include <string_view>
 #include <cstdlib>      // secure_getenv
@@ -21,11 +21,20 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 {
  private:
   sd_bus* m_bus;
+#ifdef CWDEBUG
+  uint64_t m_magic = 0x12345678abcdef99;
+#endif
 
  public:
   Connection() CWDEBUG_ONLY(: m_inside_handle_dbus_io(0))
   {
     DoutEntering(dc::notice, "Connection::Connection()");
+  }
+
+  ~Connection()
+  {
+    DoutEntering(dc::notice, "Connection::~Connection()");
+    Debug(m_magic = 0);
   }
 
   void connect_user(std::string description = "Connection")

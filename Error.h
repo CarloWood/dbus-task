@@ -1,6 +1,6 @@
 #pragma once
 
-#include <systemd/sd-bus.h>
+#include "systemd_sd-bus.h"
 #include <iosfwd>
 #include <string>
 #include <system_error>
@@ -30,6 +30,19 @@ extern void print_ErrorConst_on(std::ostream& os, sd_bus_error const& error);
 inline std::ostream& operator<<(std::ostream& os, ErrorConst const& error) { print_ErrorConst_on(os, error.m_error); return os; }
 
 // This class is NOT const, even though it is derived from ErrorConst.
+//
+// The methods of this class call:
+//
+// * sd_bus_error_is_set
+// * sd_bus_error_copy
+// * sd_bus_error_move
+// * sd_bus_error_free
+// * sd_bus_error_set
+//
+// These functions only access the members of struct sd_bus_error, in other words, only the protected
+// member of this class. For thread-safety it is therefore sufficient to not concurrently access
+// the same Error object.
+//
 class Error : protected ErrorConst
 {
  public:
@@ -49,9 +62,24 @@ class Error : protected ErrorConst
   // Construct an Error object from a sd_bus_error*. This makes a copy.
   Error(sd_bus_error const* error) { m_error = SD_BUS_ERROR_NULL; sd_bus_error_copy(&m_error, error); }
 
-  Error& operator=(ErrorConst const& constant) { sd_bus_error_free(&m_error); sd_bus_error_copy(&m_error, &constant.m_error); return *this; }
-  Error& operator=(Error const& rhs) { sd_bus_error_free(&m_error); sd_bus_error_copy(&m_error, &rhs.m_error); return *this; }
-  Error& operator=(Error&& error) { sd_bus_error_free(&m_error); sd_bus_error_move(&m_error, &error.m_error); return *this; }
+  Error& operator=(ErrorConst const& constant)
+  {
+    sd_bus_error_free(&m_error);
+    sd_bus_error_copy(&m_error, &constant.m_error);
+    return *this;
+  }
+  Error& operator=(Error const& rhs)
+  {
+    sd_bus_error_free(&m_error);
+    sd_bus_error_copy(&m_error, &rhs.m_error);
+    return *this;
+  }
+  Error& operator=(Error&& error)
+  {
+    sd_bus_error_free(&m_error);
+    sd_bus_error_move(&m_error, &error.m_error);
+    return *this;
+  }
 
   void print_on(std::ostream& os) const { print_ErrorConst_on(os, m_error); }
 
