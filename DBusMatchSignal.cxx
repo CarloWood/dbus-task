@@ -60,15 +60,15 @@ void DBusMatchSignal::multiplex_impl(state_type run_state)
       [[fallthrough]];
     case DBusMatchSignal_locked1:
     {
-      std::unique_lock<DBusMutex> lk(...);
+      set_state(DBusMatchSignal_done);
+      DBusLock lock(m_dbus_connection);
       Dout(dc::notice, "Unique name = \"" << m_dbus_connection->get_unique_name() << "\".");
       int res = sd_bus_match_signal_async(m_dbus_connection->get_bus(), &m_slot,
           m_destination->service_name(), m_destination->object_path(), m_destination->interface_name(), m_destination->method_name(),
           &DBusMatchSignal::match_callback, nullptr, this);
-      lk.unlock();
+      lock.unlock();
       if (res < 0)
         THROW_ALERTC(-res, "sd_bus_match_signal_async");
-      set_state(DBusMatchSignal_done);
       // Wait for a call back.
       wait(2);
       break;
@@ -83,8 +83,8 @@ void DBusMatchSignal::abort_impl()
 {
   if (m_slot)
   {
-    DBusMutex m{m_dbus_connection};
-    std::unique_lock<DBusMutex> lk(m);
+    m_dbus_connection->lock_blocking(this);
+    DBusLock lock(m_dbus_connection);
     // Make sure DBusMatchSignal::s_*_callback is no longer called.
     sd_bus_slot_unref(m_slot);
     m_slot = nullptr;

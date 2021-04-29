@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Connection.h"
 #include "Interface.h"
+#include "DBusHandleIO.h"
 #include "statefultask/AIStatefulTask.h"
 #include "debug.h"
 #include <iomanip>
@@ -89,22 +89,17 @@ class DBusConnectionData
 
 class DBusConnection : public AIStatefulTask, public DBusConnectionData
 {
+ public:
+  static constexpr condition_type request_name_callback = 1;
+
  private:
   // Wrapped data.
-  boost::intrusive_ptr<dbus::Connection> m_connection;          // Pointer to the Connection that is being used.
-  mutable AIStatefulTaskMutex m_mutex;
+  boost::intrusive_ptr<DBusHandleIO> m_handle_io;               // Pointer to the task containing the statefultask mutex.
 
   // Internal usage:
   sd_bus_slot* m_slot;                                          // To cancel a connection upon abort.
   sd_bus_message* m_request_name_async_callback_message;        // To tranfer service name request reply message from request_name_async_callback
                                                                 // to state machine (DBusConnection_wait_for_request_name_result).
-#ifdef CWDEBUG
-  // THIS IS A KLUDGE. It restricts the total number of DBusConnectionData
-  // objects to one, so that I can use a global/static variable to track
-  // sd_bus object state.
-  static std::atomic_int s_created;
-#endif
-
  protected:
   /// The base class of this task.
   using direct_base_type = AIStatefulTask;
@@ -124,20 +119,29 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   DBusConnection(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusConnection() [" << (void*)this << "]");
-    bool created = s_created++; ASSERT(!created);
   }
 
   /// Return the service name that was requested with request_service_name.
   std::string const& service_name() const { return m_service_name; }
 
+  void lock_blocking(AIStatefulTask* task) const
+  {
+    m_handle_io->lock_blocking(task);
+  }
+
   bool lock(AIStatefulTask* task, condition_type condition) const
   {
-    return m_mutex.lock(task, condition);
+    return m_handle_io->lock(task, condition);
   }
 
   void unlock() const
   {
-    m_mutex.unlock();
+    m_handle_io->unlock();
+  }
+
+  AIStatefulTaskMutex& mutex() const
+  {
+    return m_handle_io->mutex();
   }
 
   /// Return the unique name of this connection.
@@ -145,7 +149,7 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   {
     // The task must be successfully finished before you can call this function.
     ASSERT(finished() && !aborted());
-    return m_connection->get_unique_name();
+    return m_handle_io->connection()->get_unique_name();
   }
 
   /// Return the underlaying sd_bus* of this connection.
@@ -154,7 +158,7 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   {
     // The task must be successfully finished before you call this function.
     ASSERT(finished() && !aborted());
-    return m_connection->get_bus();
+    return m_handle_io->connection()->get_bus();
   }
 
  protected:
@@ -162,8 +166,6 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   ~DBusConnection() override
   {
     DoutEntering(dc::statefultask(mSMDebug), "~DBusConnection() [" << (void*)this << "]");
-    if (m_connection)
-      m_connection->close();
   }
 
   /// Implemenation of state_str for run states.
@@ -187,21 +189,10 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   int request_name_async_callback(sd_bus_message* m);
 };
 
-class DBusMutex
+class DBusLock : public statefultask::Lock
 {
- private:
-  DBusConnection const* m_connection;
-
  public:
-  DBusMutex(boost::intrusive_ptr<DBusConnection const> const& connection) : m_connection(connection.get()) { }
-
-  void lock()
-  {
-  }
-
-  void unlock()
-  {
-  }
+  DBusLock(boost::intrusive_ptr<DBusConnection const> const& connection) : statefultask::Lock(connection->mutex()) { }
 };
 
 } // namespace task

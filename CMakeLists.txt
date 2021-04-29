@@ -39,6 +39,8 @@ target_sources(dbus-task_ObjLib
     "Connection.h"
     "DBusConnection.cxx"
     "DBusConnection.h"
+    "DBusHandleIO.h"
+    "DBusHandleIO.cxx"
     "DBusMatchSignal.h"
     "DBusMatchSignal.cxx"
     "DBusMethodCall.cxx"

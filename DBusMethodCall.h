@@ -11,6 +11,10 @@ namespace task {
 class DBusMethodCall : public AIStatefulTask
 {
  private:
+  static constexpr condition_type connection_set_up = 1;
+  static constexpr condition_type connection_locked = 2;
+  static constexpr condition_type have_reply_callback = 4;
+
   dbus::Message m_message;
   boost::intrusive_ptr<task::Broker<task::DBusConnection>> m_broker;
   dbus::DBusConnectionBrokerKey const* m_broker_key;
@@ -26,7 +30,8 @@ class DBusMethodCall : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusMethodCall_state_type {
     DBusMethodCall_start = direct_base_type::state_end,
-    DBusMethodCall_create_message,
+    DBusMethodCall_lock1,
+    DBusMethodCall_locked1,
     DBusMethodCall_done
   };
 

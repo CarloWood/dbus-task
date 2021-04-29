@@ -1,5 +1,6 @@
 #include "sys.h"
 #include "DBusConnection.h"
+#include "Message.h"
 #include "Error.h"
 
 namespace task {
@@ -20,7 +21,7 @@ void DBusConnection::initialize_impl()
 {
   DoutEntering(dc::statefultask(mSMDebug), "DBusConnection::initialize_impl() [" << (void*)this << "]");
   m_slot = nullptr;
-  m_connection = evio::create<dbus::Connection>();
+  m_request_name_async_callback_message = nullptr;
   set_state(DBusConnection_start);
   // This isn't going to work. Please call GetAddrInfo::run() with a non-immediate handler,
   // for example resolver::DnsResolver::instance().get_handler();
@@ -31,7 +32,7 @@ int DBusConnection::request_name_async_callback(sd_bus_message* message)
 {
   sd_bus_message_ref(message);
   m_request_name_async_callback_message = message;
-  signal(1);
+  signal(request_name_callback);
   return 0;
 }
 
@@ -52,15 +53,17 @@ void DBusConnection::multiplex_impl(state_type run_state)
       // set to point to remote connection. In that case libsystemd will resolve the host
       // name and blocking connect to the socket using ssh :/.
       AI_REACHED_ONCE;
+      m_handle_io = statefultask::create<task::DBusHandleIO>(CWDEBUG_ONLY(mSMDebug));
       if (m_use_system_bus)
-        m_connection->connect_system("DBusConnection - system");
+        m_handle_io->connection()->connect_system("DBusConnection - system");
       else
-        m_connection->connect_user("DBusConnection - user");
+        m_handle_io->connection()->connect_user("DBusConnection - user");
+      m_handle_io->run();
       if (!m_service_name.empty())
       {
         set_state(DBusConnection_wait_for_request_name_result);
-        sd_bus_request_name_async(m_connection->get_bus(), &m_slot, m_service_name.c_str(), m_flags, &DBusConnection::s_request_name_async_callback, this);
-        wait(1);
+        sd_bus_request_name_async(m_handle_io->connection()->get_bus(), &m_slot, m_service_name.c_str(), m_flags, &DBusConnection::s_request_name_async_callback, this);
+        wait(request_name_callback);
         break;
       }
       set_state(DBusConnection_done);
@@ -69,7 +72,6 @@ void DBusConnection::multiplex_impl(state_type run_state)
       finish();
       break;
     case DBusConnection_wait_for_request_name_result:
-    {
       int is_error = sd_bus_message_is_method_error(m_request_name_async_callback_message, nullptr);
       if (is_error < 0)
         THROW_FALERTC(-is_error, "sd_bus_message_is_method_error");
@@ -82,13 +84,19 @@ void DBusConnection::multiplex_impl(state_type run_state)
         THROW_FALERT("[ERROR]", AIArgs("[ERROR]", dbus_error));
         abort();
       }
+#if 0
       else
-        Dout(dc::notice, "Received message: " << m_request_name_async_callback_message);
+      {
+        dbus::MessageRead message(m_request_name_async_callback_message, m_handle_io->connection()->get_bus());
+        std::string s;
+        message >> s;
+        Dout(dc::notice, "Received message: " << s);
+      }
+#endif
       sd_bus_message_unref(m_request_name_async_callback_message);
       m_request_name_async_callback_message = nullptr;
       set_state(DBusConnection_done);
       break;
-    }
   }
 }
 
@@ -109,8 +117,6 @@ void DBusConnection::abort_impl()
     sd_bus_message_unref(m_request_name_async_callback_message);
     m_request_name_async_callback_message = nullptr;
   }
-  if (m_connection)
-    m_connection->close();
 }
 
 void DBusConnectionData::initialize(DBusConnection& dbus_connection) const
@@ -119,9 +125,5 @@ void DBusConnectionData::initialize(DBusConnection& dbus_connection) const
     dbus_connection.request_service_name(m_service_name, m_flags);
   dbus_connection.set_use_system_bus(m_use_system_bus);
 }
-
-#ifdef CWDEBUG
-std::atomic_int DBusConnection::s_created;
-#endif
 
 } // namespace task

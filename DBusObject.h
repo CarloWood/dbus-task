@@ -12,6 +12,10 @@ namespace task {
 class DBusObject : public AIStatefulTask
 {
  private:
+  static constexpr condition_type connection_set_up = 1;
+  static constexpr condition_type connection_locked = 2;
+  static constexpr condition_type stop_called = 4;
+
   boost::intrusive_ptr<task::Broker<task::DBusConnection>> m_broker;
   dbus::DBusConnectionBrokerKey const* m_broker_key;
   dbus::Interface const* m_interface;
@@ -26,7 +30,8 @@ class DBusObject : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusObject_state_type {
     DBusObject_start = direct_base_type::state_end,
-    DBusObject_add_object,
+    DBusObject_lock,
+    DBusObject_locked,
     DBusObject_done
   };
 
@@ -59,7 +64,7 @@ class DBusObject : public AIStatefulTask
 
   void stop()
   {
-    signal(2);
+    signal(stop_called);
   }
 
 #ifdef CWDEBUG

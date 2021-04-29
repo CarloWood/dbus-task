@@ -9,7 +9,8 @@ char const* DBusObject::state_str_impl(state_type run_state) const
   switch(run_state)
   {
     AI_CASE_RETURN(DBusObject_start);
-    AI_CASE_RETURN(DBusObject_add_object);
+    AI_CASE_RETURN(DBusObject_lock);
+    AI_CASE_RETURN(DBusObject_locked);
     AI_CASE_RETURN(DBusObject_done);
   }
   AI_NEVER_REACHED;
@@ -28,23 +29,31 @@ void DBusObject::multiplex_impl(state_type run_state)
   {
     case DBusObject_start:
     {
-      m_dbus_connection = m_broker->run(*m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(1); });
+      m_dbus_connection = m_broker->run(*m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(connection_set_up); });
       Dout(dc::notice, "Requested name = \"" << m_dbus_connection->service_name() << "\".");
-      set_state(DBusObject_add_object);
-      wait(1);
+      set_state(DBusObject_lock);
+      wait(connection_set_up);
       break;
     }
-    case DBusObject_add_object:
+    case DBusObject_lock:
+      set_state(DBusObject_locked);
+      // Attempt to obtain the lock on the connection.
+      if (!m_dbus_connection->lock(this, connection_locked))
+      {
+        wait(connection_locked);
+        break;
+      }
+      [[fallthrough]];
+    case DBusObject_locked:
     {
-      DBusMutex m{m_dbus_connection};
-      std::unique_lock<DBusMutex> lk(m);
+      set_state(DBusObject_done);
+      DBusLock lock(m_dbus_connection);
       Dout(dc::notice, "Unique name = \"" << m_dbus_connection->get_unique_name() << "\".");
       int res = sd_bus_add_object(m_dbus_connection->get_bus(), &m_slot, m_interface->object_path(), &DBusObject::s_object_callback, this);
-      lk.unlock();
+      lock.unlock();
       if (res < 0)
         THROW_ALERTC(-res, "sd_bus_add_object");
-      set_state(DBusObject_done);
-      wait(2);
+      wait(stop_called);
       break;
     }
     case DBusObject_done:
@@ -57,9 +66,8 @@ void DBusObject::abort_impl()
 {
   if (m_slot)
   {
-    ASSERT(m_dbus_connection->get_bus());
-    DBusMutex m{m_dbus_connection};
-    std::unique_lock<DBusMutex> lk(m);
+    m_dbus_connection->lock_blocking(this);
+    DBusLock lock(m_dbus_connection);
     // Make sure DBusObject::s_*_callback is no longer called.
     sd_bus_slot_unref(m_slot);
     m_slot = nullptr;

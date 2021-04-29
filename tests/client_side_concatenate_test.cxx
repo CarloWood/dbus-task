@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-constexpr int loop_size = 300000;
+constexpr int loop_size = 1; //300;
 std::atomic_int signal_counter(0);
 
 namespace utils { using namespace threading; }

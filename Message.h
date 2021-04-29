@@ -57,9 +57,9 @@ class MessageConst
       // this message. Such task should always exist because otherwise
       // the message can't have a bus set.
       sd_bus_message_unref(m_message);
+      // Don't do that again upon destruction.
+      m_message = nullptr;
     }
-    // Don't do that again upon destruction.
-    m_message = nullptr;
   }
 
   // Assignment operator.

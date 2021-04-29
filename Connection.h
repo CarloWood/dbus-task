@@ -1,32 +1,43 @@
-#include "sys.h"
-#include "evio/inet_support.h"
-#include "evio/SocketAddress.h"
+#pragma once
+
 #include "evio/RawInputDevice.h"
 #include "evio/RawOutputDevice.h"
+#include "systemd_sd-bus.h"
+#if 0
+#include "DBusHandleIO.h"
+#include "evio/inet_support.h"
+#include "evio/SocketAddress.h"
 #include "utils/AIAlert.h"
 #include "utils/at_scope_end.h"
-#include "systemd_sd-bus.h"
 #include <memory>
 #include <string_view>
 #include <cstdlib>      // secure_getenv
 #include <cstdio>       // asprintf
 #include <cstring>      // strlen, strchr
 #include "debug.h"
+#endif
 
-#pragma once
+namespace task {
+class DBusConnection;
+class DBusHandleIO;
+} // namespace task
 
 namespace dbus {
 
 class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 {
+  using condition_type = uint32_t;      // Must be the same as AIStatefulTask::condition_type
+
  private:
   sd_bus* m_bus;
+  task::DBusHandleIO* m_handle_io;
+
 #ifdef CWDEBUG
   uint64_t m_magic = 0x12345678abcdef99;
 #endif
 
  public:
-  Connection() CWDEBUG_ONLY(: m_inside_handle_dbus_io(0))
+  Connection(task::DBusHandleIO* handle_io) : m_handle_io(handle_io)
   {
     DoutEntering(dc::notice, "Connection::Connection()");
   }
@@ -73,12 +84,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
     return unique_name;
   }
 
- private:
-#ifdef CWDEBUG
-  std::atomic_int m_inside_handle_dbus_io;
-#endif
-
-  void handle_dbus_io(int current_flags);
+  void handle_dbus_io();
 
  protected:
   virtual void read_from_fd(int& allow_deletion_count, int fd);

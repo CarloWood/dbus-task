@@ -38,7 +38,7 @@ class DBusMatchSignal : public AIStatefulTask
   static state_type constexpr state_end = DBusMatchSignal_done + 1;
 
   DBusMatchSignal(boost::intrusive_ptr<task::Broker<task::DBusConnection>> broker COMMA_CWDEBUG_ONLY(bool debug = false)) :
-    m_broker(std::move(broker)) COMMA_CWDEBUG_ONLY(AIStatefulTask(debug))
+    CWDEBUG_ONLY(AIStatefulTask(debug),) m_broker(std::move(broker))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusMatchSignal() [" << (void*)this << "]");
   }
