@@ -35,14 +35,25 @@ void DBusHandleIO::multiplex_impl(state_type run_state)
         wait(connection_locked);
         break;
       }
-      [[fallthrough]];
+      break;
     case DBusHandleIO_locked:
     {
       set_state(DBusHandleIO_lock);
-      statefultask::Lock lock(m_mutex);
-      m_connection->handle_dbus_io();
-      lock.unlock();
-      wait(have_dbus_io);
+      statefultask::AdoptLock scoped_lock(m_mutex);
+      switch (m_connection->handle_dbus_io())
+      {
+        case dbus::Connection::needs_relock:
+          scoped_lock.skip_unlock();
+          break;
+        case dbus::Connection::unlocked_and_io_handled:
+          scoped_lock.skip_unlock();
+          wait(have_dbus_io);
+          break;
+        case dbus::Connection::io_handled:
+          scoped_lock.unlock();
+          wait(have_dbus_io);
+          break;
+      }
       break;
     }
     case DBusHandleIO_done:

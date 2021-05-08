@@ -13,6 +13,7 @@ class DBusMatchSignal : public AIStatefulTask
  private:
   static constexpr condition_type connection_set_up = 1;
   static constexpr condition_type connection_locked = 2;
+  static constexpr condition_type have_match_callback = 4;
 
   dbus::DBusConnectionBrokerKey m_broker_key;
   boost::intrusive_ptr<task::Broker<task::DBusConnection>> m_broker;

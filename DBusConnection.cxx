@@ -117,6 +117,11 @@ void DBusConnection::abort_impl()
     sd_bus_message_unref(m_request_name_async_callback_message);
     m_request_name_async_callback_message = nullptr;
   }
+  if (m_handle_io)
+  {
+    m_handle_io->abort();
+    m_handle_io.reset();
+  }
 }
 
 void DBusConnectionData::initialize(DBusConnection& dbus_connection) const

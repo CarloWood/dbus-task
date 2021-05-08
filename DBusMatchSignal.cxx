@@ -26,8 +26,8 @@ void DBusMatchSignal::match_callback(dbus::MessageRead const& message)
   sd_bus_slot_unref(m_slot);
   m_slot = nullptr;
   // Unlock the connection before waking up the task.
-  m_dbus_connection->unlock();
-  signal(2);
+  m_dbus_connection->unlock(true);
+  signal(have_match_callback);
 }
 
 void DBusMatchSignal::initialize_impl()
@@ -70,7 +70,7 @@ void DBusMatchSignal::multiplex_impl(state_type run_state)
       if (res < 0)
         THROW_ALERTC(-res, "sd_bus_match_signal_async");
       // Wait for a call back.
-      wait(2);
+      wait(have_match_callback);
       break;
     }
     case DBusMatchSignal_done:

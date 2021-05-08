@@ -5,6 +5,9 @@
 #include "statefultask/AIStatefulTask.h"
 #include "debug.h"
 #include <iomanip>
+#ifdef CWDEBUG
+#include "cwds/tracked_intrusive_ptr.h"
+#endif
 
 namespace task {
 
@@ -134,9 +137,9 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
     return m_handle_io->lock(task, condition);
   }
 
-  void unlock() const
+  void unlock(bool from_callback = false) const
   {
-    m_handle_io->unlock();
+    m_handle_io->unlock(from_callback);
   }
 
   AIStatefulTaskMutex& mutex() const
@@ -161,11 +164,23 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
     return m_handle_io->connection()->get_bus();
   }
 
+  void terminate()
+  {
+    DoutEntering(dc::notice, "DBusConnection::terminate()");
+    m_handle_io->abort();
+  }
+
+  void print_tracker_info_on(std::ostream& os) const
+  {
+    os << "<DBusConnection tracker info>";
+  }
+
  protected:
   /// Call finish() (or abort()), not delete.
   ~DBusConnection() override
   {
     DoutEntering(dc::statefultask(mSMDebug), "~DBusConnection() [" << (void*)this << "]");
+    terminate();
   }
 
   /// Implemenation of state_str for run states.
@@ -189,10 +204,15 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   int request_name_async_callback(sd_bus_message* m);
 };
 
-class DBusLock : public statefultask::Lock
+class DBusLock : public statefultask::AdoptLock
 {
  public:
-  DBusLock(boost::intrusive_ptr<DBusConnection const> const& connection) : statefultask::Lock(connection->mutex()) { }
+  DBusLock(boost::intrusive_ptr<DBusConnection const> const& connection) : statefultask::AdoptLock(connection->mutex()) { }
 };
 
 } // namespace task
+
+#ifdef CWDEBUG
+// We are tracking boost::intrusive_ptr<task::DBusConnection>.
+DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusConnection)
+#endif

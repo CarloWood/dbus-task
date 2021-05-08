@@ -45,11 +45,14 @@ class DBusHandleIO : public AIStatefulTask
 
   bool lock(AIStatefulTask* task, condition_type condition) const
   {
+    m_connection->unset_unlocked_in_callback();
     return m_mutex.lock(task, condition);
   }
 
-  void unlock() const
+  void unlock(bool from_callback) const
   {
+    if (from_callback)
+      m_connection->set_unlocked_in_callback();
     m_mutex.unlock();
   }
 
@@ -80,3 +83,8 @@ class DBusHandleIO : public AIStatefulTask
 };
 
 } //namespace task
+
+#ifdef CWDEBUG
+// We are tracking boost::intrusive_ptr<dbus::Connection>.
+DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusHandleIO)
+#endif

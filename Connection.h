@@ -3,18 +3,9 @@
 #include "evio/RawInputDevice.h"
 #include "evio/RawOutputDevice.h"
 #include "systemd_sd-bus.h"
-#if 0
-#include "DBusHandleIO.h"
-#include "evio/inet_support.h"
-#include "evio/SocketAddress.h"
-#include "utils/AIAlert.h"
-#include "utils/at_scope_end.h"
-#include <memory>
-#include <string_view>
-#include <cstdlib>      // secure_getenv
-#include <cstdio>       // asprintf
-#include <cstring>      // strlen, strchr
 #include "debug.h"
+#ifdef CWDEBUG
+#include "cwds/tracked_intrusive_ptr.h"
 #endif
 
 namespace task {
@@ -31,6 +22,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
  private:
   sd_bus* m_bus;
   task::DBusHandleIO* m_handle_io;
+  bool m_unlocked_in_callback;                                  // Set to true when m_mutex was unlocked while inside sd_bus_process.
 
 #ifdef CWDEBUG
   uint64_t m_magic = 0x12345678abcdef99;
@@ -84,7 +76,35 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
     return unique_name;
   }
 
-  void handle_dbus_io();
+ public:
+  enum HandleIOResult {
+    needs_relock,
+    io_handled,
+    unlocked_and_io_handled
+  };
+
+  void unset_unlocked_in_callback()
+  {
+    m_unlocked_in_callback = false;
+  }
+
+  void set_unlocked_in_callback()
+  {
+    ASSERT(!m_unlocked_in_callback);
+    m_unlocked_in_callback = true;
+  }
+
+  bool is_unlocked_in_callback() const
+  {
+    return m_unlocked_in_callback;
+  }
+
+  HandleIOResult handle_dbus_io();
+
+  void print_tracker_info_on(std::ostream& os)
+  {
+    os << this << ": " << get_unique_name();
+  }
 
  protected:
   virtual void read_from_fd(int& allow_deletion_count, int fd);
@@ -94,3 +114,8 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 };
 
 } // namespace dbus
+
+#ifdef CWDEBUG
+// We are tracking boost::intrusive_ptr<dbus::Connection>.
+DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(dbus::Connection)
+#endif

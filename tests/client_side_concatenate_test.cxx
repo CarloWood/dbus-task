@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-constexpr int loop_size = 1; //300;
+constexpr int loop_size = 20;
 std::atomic_int signal_counter(0);
 
 namespace utils { using namespace threading; }
@@ -67,11 +67,6 @@ void on_reply_concatenate(dbus::MessageRead const& message, std::string expected
     assert(result == expected_result);
   }
 }
-
-#ifdef CWDEBUG
-// Specialize boost::intrusive_ptr<task::DBusConnection> to track its instances.
-DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusConnection)
-#endif
 
 int main()
 {
@@ -157,9 +152,10 @@ int main()
 
     // Stop the broker task.
     broker->abort();
+    broker.reset();
 
     // Print stuff...
-    Debug(tracked::intrusive_ptr<task::DBusConnection>::for_each([](tracked::intrusive_ptr<task::DBusConnection> const* p){ Dout(dc::notice, p); }));
+    utils::InstanceCollections::dump();
 
     // Application terminated cleanly.
     event_loop.join();

@@ -5,8 +5,9 @@
 
 namespace dbus {
 
-void Connection::handle_dbus_io()
+Connection::HandleIOResult Connection::handle_dbus_io()
 {
+  DoutEntering(dc::notice|continued_cf, "Connection::handle_dbus_io() = ");
 #ifdef CWDEBUG
   ASSERT(m_magic == 0x12345678abcdef99);
 #endif
@@ -19,6 +20,11 @@ void Connection::handle_dbus_io()
     {
       THROW_ALERTC(-ret, "sd_bus_process");
     }
+    if (ret && m_unlocked_in_callback)
+    {
+      Dout(dc::finish, "needs_relock");
+      return needs_relock;
+    }
   }
   while (ret);
   int flags = sd_bus_get_events(m_bus);
@@ -30,6 +36,9 @@ void Connection::handle_dbus_io()
     start_output_device();
   else if ((flags & POLLIN))
     start_input_device();
+
+  Dout(dc::finish, (m_unlocked_in_callback ? "unlocked_and_io_handled" : "io_handled"));
+  return m_unlocked_in_callback ? unlocked_and_io_handled : io_handled;
 }
 
 void Connection::read_from_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd))
