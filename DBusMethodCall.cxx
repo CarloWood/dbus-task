@@ -10,8 +10,8 @@ char const* DBusMethodCall::state_str_impl(state_type run_state) const
   switch(run_state)
   {
     AI_CASE_RETURN(DBusMethodCall_start);
-    AI_CASE_RETURN(DBusMethodCall_lock1);
-    AI_CASE_RETURN(DBusMethodCall_locked1);
+    AI_CASE_RETURN(DBusMethodCall_lock);
+    AI_CASE_RETURN(DBusMethodCall_locked);
     AI_CASE_RETURN(DBusMethodCall_done);
   }
   AI_NEVER_REACHED;
@@ -37,12 +37,12 @@ void DBusMethodCall::multiplex_impl(state_type run_state)
     {
       m_dbus_connection = m_broker->run(*m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(connection_set_up); });
       Dout(dc::notice, "Requested name = \"" << m_dbus_connection->service_name() << "\".");
-      set_state(DBusMethodCall_lock1);
+      set_state(DBusMethodCall_lock);
       wait(connection_set_up);
       break;
     }
-    case DBusMethodCall_lock1:
-      set_state(DBusMethodCall_locked1);
+    case DBusMethodCall_lock:
+      set_state(DBusMethodCall_locked);
       // Attempt to obtain the lock on the connection.
       if (!m_dbus_connection->lock(this, connection_locked))
       {
@@ -50,7 +50,7 @@ void DBusMethodCall::multiplex_impl(state_type run_state)
         break;
       }
       [[fallthrough]];
-    case DBusMethodCall_locked1:
+    case DBusMethodCall_locked:
     {
       set_state(DBusMethodCall_done);
       DBusLock lock(m_dbus_connection);
