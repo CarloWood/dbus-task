@@ -25,7 +25,10 @@ void DBusMethodCall::reply_callback(dbus::MessageRead const& message)
   // We're done with the message.
   m_message.reset();
   // Unlock the mutex before waking up the task.
-  m_dbus_connection->unlock(true);
+  // The current handler may not be immediate because that would cause arbitrary code
+  // to be executed immediately, which isn't what we can allow since we have the lock
+  // on the connection.
+  ASSERT(!is_immediate());
   signal(have_reply_callback);
 }
 

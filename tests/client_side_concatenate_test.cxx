@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-constexpr int loop_size = 20;
+constexpr int loop_size = 3000;
 std::atomic_int signal_counter(0);
 
 namespace utils { using namespace threading; }
@@ -54,7 +54,7 @@ void on_reply_concatenate(dbus::MessageRead const& message, std::string expected
     Dout(dc::notice, "Message is an error: " << dbus_error);
 
     std::error_code error_code = dbus_error;
-    Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "]");
+    Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "] (signal_counter = " << signal_counter << ")");
 
     if (signal_counter++ == loop_size - 1)
       gate.open();
@@ -87,7 +87,7 @@ int main()
   // And the thread pool queues.
   [[maybe_unused]] AIQueueHandle high_priority_queue   = thread_pool.new_queue(queue_capacity, reserved_threads);
   [[maybe_unused]] AIQueueHandle medium_priority_queue = thread_pool.new_queue(queue_capacity, reserved_threads);
-                   AIQueueHandle low_priority_queue    = thread_pool.new_queue(queue_capacity);
+                   AIQueueHandle low_priority_queue    = thread_pool.new_queue(100 * queue_capacity);
 
   // Main application begin.
   try
@@ -132,7 +132,7 @@ int main()
         // Pass separator by reference, because their life time is longer than the life time of dbus_method_call.
         dbus_method_call->set_params_callback([&separator, numbers](dbus::Message& message) { message.append(numbers.begin(), numbers.end()).append(separator); });
         dbus_method_call->set_reply_callback([expected_result](dbus::MessageRead const& message) { on_reply_concatenate(message, expected_result); });
-        dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
+        dbus_method_call->run(low_priority_queue, [](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
       }
 
       // Invoke concatenate again, this time with no numbers and we shall get an error
@@ -143,7 +143,7 @@ int main()
         // Pass no numbers.
         dbus_method_call->set_params_callback([&](dbus::Message& message) { message.append(numbers.begin(), numbers.begin()).append(separator); });
         dbus_method_call->set_reply_callback([](dbus::MessageRead const& message) { on_reply_concatenate(message, ""); });
-        dbus_method_call->run([](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
+        dbus_method_call->run(low_priority_queue, [](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
       }
     }
 

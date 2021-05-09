@@ -22,7 +22,7 @@ void DBusHandleIO::multiplex_impl(state_type run_state)
   {
     case DBusHandleIO_start:
     {
-      //...
+      m_connection->handle_io_ready();  // We are ready to receive signals now.
       set_state(DBusHandleIO_lock);
       wait(have_dbus_io);
       break;
@@ -38,6 +38,7 @@ void DBusHandleIO::multiplex_impl(state_type run_state)
       break;
     case DBusHandleIO_locked:
     {
+      obtained_lock();
       set_state(DBusHandleIO_lock);
       statefultask::AdoptLock scoped_lock(m_mutex);
       switch (m_connection->handle_dbus_io())

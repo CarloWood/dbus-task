@@ -26,7 +26,10 @@ void DBusMatchSignal::match_callback(dbus::MessageRead const& message)
   sd_bus_slot_unref(m_slot);
   m_slot = nullptr;
   // Unlock the connection before waking up the task.
-  m_dbus_connection->unlock(true);
+  // The current handler may not be immediate because that would cause arbitrary code
+  // to be executed immediately, which isn't what we can allow since we have the lock
+  // on the connection.
+  ASSERT(!is_immediate());
   signal(have_match_callback);
 }
 

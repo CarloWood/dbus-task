@@ -50,9 +50,24 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_get_fd");
     fd_init(fd);
+    // Do not start the output device yet!
+    // Doing so would cause write_to_fd to be called simply because we can write,
+    // but that function calls task::DBusHandleIO::signal(task::DBusHandleIO::have_dbus_io)
+    // which would be lost if task::DBusHandleIO hasn't reached the corresponding
+    // wait(have_dbus_io) yet.
+    //
+    // Once task::DBusHandleIO has reached state DBusHandleIO_start it will
+    // call handle_io_ready(), which will start the output device.
+  }
+
+ private:
+  friend class task::DBusHandleIO;
+  void handle_io_ready()
+  {
     start_output_device();
   }
 
+ public:
   void connect_system(std::string description = "Connection")
   {
     DoutEntering(dc::notice, "Connection::connect_system()");
@@ -63,7 +78,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_get_fd");
     fd_init(fd);
-    start_output_device();
+    // Do not start the output device yet! See above.
   }
 
   sd_bus* get_bus() { return m_bus; }
@@ -85,11 +100,13 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 
   void unset_unlocked_in_callback()
   {
+    Dout(dc::notice, "unset_unlocked_in_callback() [" << this << "]");
     m_unlocked_in_callback = false;
   }
 
   void set_unlocked_in_callback()
   {
+    Dout(dc::notice, "set_unlocked_in_callback() [" << this << "]");
     ASSERT(!m_unlocked_in_callback);
     m_unlocked_in_callback = true;
   }

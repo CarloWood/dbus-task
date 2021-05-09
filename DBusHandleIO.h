@@ -45,8 +45,12 @@ class DBusHandleIO : public AIStatefulTask
 
   bool lock(AIStatefulTask* task, condition_type condition) const
   {
-    m_connection->unset_unlocked_in_callback();
     return m_mutex.lock(task, condition);
+  }
+
+  void obtained_lock() const
+  {
+    m_connection->unset_unlocked_in_callback();
   }
 
   void unlock(bool from_callback) const

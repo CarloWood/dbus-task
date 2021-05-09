@@ -137,9 +137,9 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
     return m_handle_io->lock(task, condition);
   }
 
-  void unlock(bool from_callback = false) const
+  void unlock() const
   {
-    m_handle_io->unlock(from_callback);
+    m_handle_io->unlock(false);
   }
 
   AIStatefulTaskMutex& mutex() const
@@ -181,6 +181,11 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   {
     DoutEntering(dc::statefultask(mSMDebug), "~DBusConnection() [" << (void*)this << "]");
     terminate();
+  }
+
+  void obtained_lock() const
+  {
+    m_handle_io->obtained_lock();
   }
 
   /// Implemenation of state_str for run states.
