@@ -29,7 +29,7 @@ class DBusMatchSignal : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusMatchSignal_state_type {
     DBusMatchSignal_start = direct_base_type::state_end,
-    DBusMatchSignal_lock,
+    DBusMatchSignal_wait_for_lock,
     DBusMatchSignal_locked,
     DBusMatchSignal_done
   };

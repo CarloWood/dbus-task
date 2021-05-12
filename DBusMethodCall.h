@@ -30,7 +30,7 @@ class DBusMethodCall : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusMethodCall_state_type {
     DBusMethodCall_start = direct_base_type::state_end,
-    DBusMethodCall_lock,
+    DBusMethodCall_wait_for_lock,
     DBusMethodCall_locked,
     DBusMethodCall_done
   };

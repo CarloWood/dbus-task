@@ -11,7 +11,7 @@ char const* DBusMatchSignal::state_str_impl(state_type run_state) const
   switch(run_state)
   {
     AI_CASE_RETURN(DBusMatchSignal_start);
-    AI_CASE_RETURN(DBusMatchSignal_lock);
+    AI_CASE_RETURN(DBusMatchSignal_wait_for_lock);
     AI_CASE_RETURN(DBusMatchSignal_locked);
     AI_CASE_RETURN(DBusMatchSignal_done);
   }
@@ -48,11 +48,11 @@ void DBusMatchSignal::multiplex_impl(state_type run_state)
     {
       m_dbus_connection = m_broker->run(m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(connection_set_up); });
       Dout(dc::notice, "Requested name = \"" << m_dbus_connection->service_name() << "\".");
-      set_state(DBusMatchSignal_lock);
+      set_state(DBusMatchSignal_wait_for_lock);
       wait(connection_set_up);
       break;
     }
-    case DBusMatchSignal_lock:
+    case DBusMatchSignal_wait_for_lock:
       set_state(DBusMatchSignal_locked);
       // Attempt to obtain the lock on the connection.
       if (!m_dbus_connection->lock(this, connection_locked))

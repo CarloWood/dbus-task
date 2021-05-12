@@ -87,7 +87,7 @@ int main()
   // And the thread pool queues.
   [[maybe_unused]] AIQueueHandle high_priority_queue   = thread_pool.new_queue(queue_capacity, reserved_threads);
   [[maybe_unused]] AIQueueHandle medium_priority_queue = thread_pool.new_queue(queue_capacity, reserved_threads);
-                   AIQueueHandle low_priority_queue    = thread_pool.new_queue(100 * queue_capacity);
+                   AIQueueHandle low_priority_queue    = thread_pool.new_queue(queue_capacity);
 
   // Main application begin.
   try

@@ -30,7 +30,7 @@ class DBusObject : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusObject_state_type {
     DBusObject_start = direct_base_type::state_end,
-    DBusObject_lock,
+    DBusObject_wait_for_lock,
     DBusObject_locked,
     DBusObject_done
   };

@@ -9,7 +9,7 @@ char const* DBusObject::state_str_impl(state_type run_state) const
   switch(run_state)
   {
     AI_CASE_RETURN(DBusObject_start);
-    AI_CASE_RETURN(DBusObject_lock);
+    AI_CASE_RETURN(DBusObject_wait_for_lock);
     AI_CASE_RETURN(DBusObject_locked);
     AI_CASE_RETURN(DBusObject_done);
   }
@@ -31,11 +31,11 @@ void DBusObject::multiplex_impl(state_type run_state)
     {
       m_dbus_connection = m_broker->run(*m_broker_key, [this](bool success){ Dout(dc::notice, "dbus_connection finished!"); signal(connection_set_up); });
       Dout(dc::notice, "Requested name = \"" << m_dbus_connection->service_name() << "\".");
-      set_state(DBusObject_lock);
+      set_state(DBusObject_wait_for_lock);
       wait(connection_set_up);
       break;
     }
-    case DBusObject_lock:
+    case DBusObject_wait_for_lock:
       set_state(DBusObject_locked);
       // Attempt to obtain the lock on the connection.
       if (!m_dbus_connection->lock(this, connection_locked))

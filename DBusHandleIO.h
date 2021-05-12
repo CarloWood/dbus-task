@@ -23,7 +23,7 @@ class DBusHandleIO : public AIStatefulTask
   /// The different states of the stateful task.
   enum DBusHandleIO_state_type {
     DBusHandleIO_start = direct_base_type::state_end,
-    DBusHandleIO_lock,
+    DBusHandleIO_wait_for_lock,
     DBusHandleIO_locked,
     DBusHandleIO_done
   };
