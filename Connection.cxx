@@ -48,7 +48,11 @@ void Connection::read_from_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_
   // done with the socket, leading to, for example, program termination.
   //
   // Wake up the DBusConnection task - also if it waiting for request_name_callback.
-  m_handle_io->signal(task::DBusHandleIO::have_dbus_io);
+  if (!m_handle_io->signal(task::DBusHandleIO::have_dbus_io))
+    // If signal returned false then the task did not wake up, possibly
+    // because it is halted due to a full threadpool queue. In that case
+    // stop monitoring the fd for input.
+    stop_input_device();
 }
 
 void Connection::write_to_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd))
