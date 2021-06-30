@@ -55,9 +55,6 @@ void on_reply_concatenate(dbus::MessageRead const& message, std::string expected
 
     std::error_code error_code = dbus_error;
     Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "] (signal_counter = " << signal_counter << ")");
-
-    if (signal_counter++ == loop_size - 1)
-      gate.open();
   }
   else
   {
@@ -66,6 +63,9 @@ void on_reply_concatenate(dbus::MessageRead const& message, std::string expected
     Dout(dc::notice, "result = \"" << result << "\", expected_result = \"" << expected_result << "\".");
     assert(result == expected_result);
   }
+
+  if (signal_counter++ == 2 * loop_size - 1)
+    gate.open();
 }
 
 int main()
@@ -153,9 +153,6 @@ int main()
     // Stop the broker task.
     broker->abort();
     broker.reset();
-
-    // Print stuff...
-    utils::InstanceCollections::dump();
 
     // Application terminated cleanly.
     event_loop.join();

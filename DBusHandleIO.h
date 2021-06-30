@@ -87,8 +87,3 @@ class DBusHandleIO : public AIStatefulTask
 };
 
 } //namespace task
-
-#ifdef CWDEBUG
-// We are tracking boost::intrusive_ptr<dbus::Connection>.
-DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusHandleIO)
-#endif

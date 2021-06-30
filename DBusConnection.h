@@ -170,11 +170,6 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
     m_handle_io->abort();
   }
 
-  void print_tracker_info_on(std::ostream& os) const
-  {
-    os << "<DBusConnection tracker info>";
-  }
-
  protected:
   /// Call finish() (or abort()), not delete.
   ~DBusConnection() override
@@ -216,8 +211,3 @@ class DBusLock : public statefultask::AdoptLock
 };
 
 } // namespace task
-
-#ifdef CWDEBUG
-// We are tracking boost::intrusive_ptr<task::DBusConnection>.
-DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(task::DBusConnection)
-#endif

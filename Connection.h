@@ -118,11 +118,6 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 
   HandleIOResult handle_dbus_io();
 
-  void print_tracker_info_on(std::ostream& os)
-  {
-    os << this << ": " << get_unique_name();
-  }
-
  protected:
   virtual void read_from_fd(int& allow_deletion_count, int fd);
   virtual void write_to_fd(int& allow_deletion_count, int fd);
@@ -131,8 +126,3 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 };
 
 } // namespace dbus
-
-#ifdef CWDEBUG
-// We are tracking boost::intrusive_ptr<dbus::Connection>.
-DECLARE_TRACKED_BOOST_INTRUSIVE_PTR(dbus::Connection)
-#endif
