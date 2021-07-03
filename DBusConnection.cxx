@@ -10,8 +10,11 @@ char const* DBusConnection::state_str_impl(state_type run_state) const
   switch(run_state)
   {
     AI_CASE_RETURN(DBusConnection_start);
-    AI_CASE_RETURN(DBusConnection_wait_for_request_name_result);
     AI_CASE_RETURN(DBusConnection_done);
+    AI_CASE_RETURN(DBusConnection_request_name_async_wait_for_lock);
+    AI_CASE_RETURN(DBusConnection_request_name_async);
+    AI_CASE_RETURN(DBusConnection_wait_for_request_name_result_wait_for_lock);
+    AI_CASE_RETURN(DBusConnection_wait_for_request_name_result);
   }
   ASSERT(false);
   return "UNKNOWN STATE";
@@ -61,9 +64,9 @@ void DBusConnection::multiplex_impl(state_type run_state)
       m_handle_io->run();
       if (!m_service_name.empty())
       {
-        set_state(DBusConnection_wait_for_request_name_result);
-        sd_bus_request_name_async(m_handle_io->connection()->get_bus(), &m_slot, m_service_name.c_str(), m_flags, &DBusConnection::s_request_name_async_callback, this);
-        wait(request_name_callback);
+        // Now that m_handle_io is running we can't just start calling sd_bus_* functions anymore,
+        // because sd_bus is single threaded :(. Therefore obtain the task mutex before continuing.
+        set_state(DBusConnection_request_name_async_wait_for_lock);
         break;
       }
       set_state(DBusConnection_done);
@@ -71,7 +74,33 @@ void DBusConnection::multiplex_impl(state_type run_state)
     case DBusConnection_done:
       finish();
       break;
+    case DBusConnection_request_name_async_wait_for_lock:
+      set_state(DBusConnection_request_name_async);
+      if (!m_handle_io->lock(this, connection_locked))
+      {
+        wait(connection_locked);
+        break;
+      }
+      [[fallthrough]];
+    case DBusConnection_request_name_async:
+    {
+      statefultask::AdoptLock lock(mutex());
+      set_state(DBusConnection_wait_for_request_name_result_wait_for_lock);
+      sd_bus_request_name_async(m_handle_io->connection()->get_bus(), &m_slot, m_service_name.c_str(), m_flags, &DBusConnection::s_request_name_async_callback, this);
+      wait(request_name_callback);
+      break;
+    }
+    case DBusConnection_wait_for_request_name_result_wait_for_lock:
+      set_state(DBusConnection_wait_for_request_name_result);
+      if (!m_handle_io->lock(this, connection_locked))
+      {
+        wait(connection_locked);
+        break;
+      }
+      [[fallthrough]];
     case DBusConnection_wait_for_request_name_result:
+    {
+      statefultask::AdoptLock lock(mutex());
       int is_error = sd_bus_message_is_method_error(m_request_name_async_callback_message, nullptr);
       if (is_error < 0)
         THROW_FALERTC(-is_error, "sd_bus_message_is_method_error");
@@ -97,6 +126,7 @@ void DBusConnection::multiplex_impl(state_type run_state)
       m_request_name_async_callback_message = nullptr;
       set_state(DBusConnection_done);
       break;
+    }
   }
 }
 

@@ -12,7 +12,7 @@ OneThreadAtATime dbus_critical_area;
 #define SD_BUS_DEFINE_VOID(R, N, P, ...) \
   R wrap_##N P \
   { \
-    DoutEntering(dc::notice|continued_cf, BOOST_PP_STRINGIZE(BOOST_PP_CAT(sd_, N)) "... "); \
+    DoutEntering(dc::dbus|continued_cf, BOOST_PP_STRINGIZE(BOOST_PP_CAT(sd_, N)) "... "); \
     std::lock_guard<OneThreadAtATime> lk(dbus_critical_area); \
     sd_##N (__VA_ARGS__); \
     Dout(dc::finish, "done"); \
@@ -21,7 +21,7 @@ OneThreadAtATime dbus_critical_area;
 #define SD_BUS_DEFINE_NON_VOID(R, N, P, ...) \
   R wrap_##N P \
   { \
-    DoutEntering(dc::notice|continued_cf, BOOST_PP_STRINGIZE(BOOST_PP_CAT(sd_, N)) " = "); \
+    DoutEntering(dc::dbus|continued_cf, BOOST_PP_STRINGIZE(BOOST_PP_CAT(sd_, N)) " = "); \
     std::lock_guard<OneThreadAtATime> lk(dbus_critical_area); \
     R ret2 = sd_##N (__VA_ARGS__); \
     Dout(dc::finish, ret2); \
@@ -33,7 +33,7 @@ OneThreadAtATime dbus_critical_area;
   { \
     va_list ap; \
     va_start(ap, types); \
-    DoutEntering(dc::notice|continued_cf, BOOST_PP_STRINGIZE(BOOST_PP_CAT(sd_, N)) " = "); \
+    DoutEntering(dc::dbus|continued_cf, BOOST_PP_STRINGIZE(BOOST_PP_CAT(sd_, N)) " = "); \
     std::lock_guard<OneThreadAtATime> lk(dbus_critical_area); \
     R ret2 = sd_##N##v (__VA_ARGS__, ap); \
     Dout(dc::finish, ret2); \
@@ -44,3 +44,9 @@ OneThreadAtATime dbus_critical_area;
 SD_BUS_FOREACH_VOID_FUNCTION(SD_BUS_DEFINE_VOID)
 SD_BUS_FOREACH_NON_VOID_FUNCTION(SD_BUS_DEFINE_NON_VOID)
 SD_BUS_FOREACH_ELIPSIS_FUNCTION(SD_BUS_DEFINE_ELIPSIS)
+
+#if defined(CWDEBUG) && !defined(DOXYGEN)
+NAMESPACE_DEBUG_CHANNELS_START
+channel_ct dbus("DBUS");
+NAMESPACE_DEBUG_CHANNELS_END
+#endif

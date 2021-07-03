@@ -92,6 +92,9 @@ class Error : protected ErrorConst
   // Back to sd_bus_error* variable.
   void copy_to(sd_bus_error* output) const { sd_bus_error_copy(output, &m_error); }
   void move_to(sd_bus_error* output) && { sd_bus_error_move(output, &m_error); }
+
+  // Return true if this error has name `name`.
+  bool has_name(char const* name) const { return sd_bus_error_has_name(&m_error, name); }
 };
 
 inline std::ostream& operator<<(std::ostream& os, Error const& error) { error.print_on(os); return os; }

@@ -64,7 +64,7 @@ void Connection::write_to_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_A
   // the EventThread will keep calling this function over and over, thinking that
   // more has to be written.
   stop_output_device();
-  // Wake up the DBusConnection task - also if it waiting for request_name_callback.
+  // Wake up the DBusConnection task - also if it is waiting for request_name_callback.
   m_handle_io->signal(task::DBusHandleIO::have_dbus_io);
 }
 

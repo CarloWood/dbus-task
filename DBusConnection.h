@@ -94,6 +94,7 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
 {
  public:
   static constexpr condition_type request_name_callback = 1;
+  static constexpr condition_type connection_locked = 2;
 
  private:
   // Wrapped data.
@@ -110,8 +111,11 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   /// The different states of the stateful task.
   enum DBusConnection_state_type {
     DBusConnection_start = direct_base_type::state_end,
-    DBusConnection_wait_for_request_name_result,
-    DBusConnection_done
+    DBusConnection_done,
+    DBusConnection_request_name_async_wait_for_lock,
+    DBusConnection_request_name_async,
+    DBusConnection_wait_for_request_name_result_wait_for_lock,
+    DBusConnection_wait_for_request_name_result
   };
 
  public:
@@ -166,7 +170,7 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
 
   void terminate()
   {
-    DoutEntering(dc::notice, "DBusConnection::terminate()");
+    DoutEntering(dc::statefultask(mSMDebug), "DBusConnection::terminate()");
     m_handle_io->abort();
   }
 

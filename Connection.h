@@ -22,27 +22,19 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
  private:
   sd_bus* m_bus;
   task::DBusHandleIO* m_handle_io;
-  bool m_unlocked_in_callback;                                  // Set to true when m_mutex was unlocked while inside sd_bus_process.
+  bool m_unlocked_in_callback;          // Set to true when m_mutex was unlocked while inside sd_bus_process.
 
 #ifdef CWDEBUG
   uint64_t m_magic = 0x12345678abcdef99;
 #endif
 
  public:
-  Connection(task::DBusHandleIO* handle_io) : m_handle_io(handle_io)
-  {
-    DoutEntering(dc::notice, "Connection::Connection()");
-  }
-
-  ~Connection()
-  {
-    DoutEntering(dc::notice, "Connection::~Connection()");
-    Debug(m_magic = 0);
-  }
+  Connection(task::DBusHandleIO* handle_io) : m_handle_io(handle_io) { }
+  ~Connection() { Debug(m_magic = 0); }
 
   void connect_user(std::string description = "Connection")
   {
-    DoutEntering(dc::notice, "Connection::connect_user()");
+    DoutEntering(dc::dbus, "dbus::Connection::connect_user()");
     int ret = sd_bus_open_user_with_description(&m_bus, description.c_str());           // Create and connects a socket and writes the initial messages to it.
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_open_user_with_description");
@@ -70,7 +62,7 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
  public:
   void connect_system(std::string description = "Connection")
   {
-    DoutEntering(dc::notice, "Connection::connect_system()");
+    DoutEntering(dc::dbus, "dbus::Connection::connect_system()");
     int ret = sd_bus_open_system_with_description(&m_bus, description.c_str());
     if (ret < 0)
       THROW_ALERTC(-ret, "sd_bus_open_system_with_description");
@@ -100,13 +92,11 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
 
   void unset_unlocked_in_callback()
   {
-    Dout(dc::notice, "unset_unlocked_in_callback() [" << this << "]");
     m_unlocked_in_callback = false;
   }
 
   void set_unlocked_in_callback()
   {
-    Dout(dc::notice, "set_unlocked_in_callback() [" << this << "]");
     ASSERT(!m_unlocked_in_callback);
     m_unlocked_in_callback = true;
   }
@@ -121,8 +111,8 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
  protected:
   virtual void read_from_fd(int& allow_deletion_count, int fd);
   virtual void write_to_fd(int& allow_deletion_count, int fd);
-  virtual void hup(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "Connection::hup"); }
-  virtual void err(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "Connection::err"); close(); }
+  virtual void hup(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "dbus::Connection::hup"); }
+  virtual void err(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "dbus::Connection::err"); close(); }
 };
 
 } // namespace dbus

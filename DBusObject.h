@@ -84,6 +84,7 @@ class DBusObject : public AIStatefulTask
       if (handled)
       {
         // Make sure DBusObject::s_*_callback is not called again.
+        Dout(dc::dbus(mSMDebug), "object_callback returned true: calling sd_bus_slot_unref(m_slot) and setting m_slot to nullptr (making sure the callback is no longer called)");
         sd_bus_slot_unref(self->m_slot);
         self->m_slot = nullptr;
       }

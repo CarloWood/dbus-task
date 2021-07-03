@@ -55,6 +55,9 @@ void on_reply_concatenate(dbus::MessageRead const& message, std::string expected
 
     std::error_code error_code = dbus_error;
     Dout(dc::notice, "error_code = " << error_code << " [" << error_code.message() << "] (signal_counter = " << signal_counter << ")");
+
+    // These are the only errors we should be getting.
+    assert(dbus_error.has_name("org.sdbuscpp.Concatenator.Error.NoNumbers"));
   }
   else
   {
@@ -134,7 +137,6 @@ int main()
         dbus_method_call->set_reply_callback([expected_result](dbus::MessageRead const& message) { on_reply_concatenate(message, expected_result); });
         dbus_method_call->run(low_priority_queue, [](bool success){ Dout(dc::notice, "task::DBusMethodCall " << (success ? "successful!" : "failed!")); });
       }
-
       // Invoke concatenate again, this time with no numbers and we shall get an error
       {
         auto dbus_method_call = create<task::DBusMethodCall>(CWDEBUG_ONLY(true));

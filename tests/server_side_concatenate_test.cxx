@@ -13,6 +13,7 @@
 #include "threadpool/AIThreadPool.h"
 #include "resolver-task/DnsResolver.h"
 #include "utils/AIAlert.h"
+#include "utils/threading/Gate.h"
 #include "utils/debug_ostream_operators.h"
 #include "debug.h"
 #ifdef CWDEBUG
@@ -24,6 +25,8 @@
 #include <vector>
 
 #include "dbus-task/systemd_sd-bus.h"
+
+namespace utils { using namespace threading; }
 
 namespace dbus {
 static constexpr ErrorConst no_numbers_error = { SD_BUS_ERROR_MAKE_CONST("org.sdbuscpp.Concatenator.Error.NoNumbers", "No numbers provided") };
@@ -38,8 +41,10 @@ class MyDBusObject : public task::DBusObject
   std::string concatenate(sd_bus* bus, std::vector<int32_t> const& numbers, std::string const& separator)
   {
     DoutEntering(dc::notice, "MyDBusObject::concatenate(" << numbers << ", " << "\"" << separator << "\")");
+
     if (numbers.empty())
       throw dbus::Error(dbus::no_numbers_error);
+
     std::string result;
     for (auto number : numbers)
       result += (result.empty() ? std::string() : separator) + std::to_string(number);
@@ -74,10 +79,13 @@ bool MyDBusObject::object_callback(dbus::Message message)
     message >> separator;
     std::string result = concatenate(message.get_bus(), numbers, separator);
     message.reply_method_return(result);
-    return true;
+    //return true;
   }
   return false;
 }
+
+// Application will keep running until this gate is opened.
+utils::Gate gate;
 
 int main()
 {
@@ -134,13 +142,15 @@ int main()
     // Allow the broker to establish a connection.
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    gate.wait();
+
     // Stop the broker task.
-//    broker->abort();
+    broker->abort();
 
     Dout(dc::warning, "Leaving main thread scope -- does this cause program termination?");
 
     // Print stuff...
-    Debug(tracked::intrusive_ptr<task::DBusConnection>::for_each([](tracked::intrusive_ptr<task::DBusConnection> const* p){ Dout(dc::notice, p); }));
+    //Debug(tracked::intrusive_ptr<task::DBusConnection>::for_each([](tracked::intrusive_ptr<task::DBusConnection> const* p){ Dout(dc::notice, p); }));
 
     // Application terminated cleanly.
     event_loop.join();

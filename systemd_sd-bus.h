@@ -1,5 +1,12 @@
 #pragma once
+#include "debug.h"
 #include <systemd/sd-bus.h>
+
+#if defined(CWDEBUG) && !defined(DOXYGEN)
+NAMESPACE_DEBUG_CHANNELS_START
+extern channel_ct dbus;
+NAMESPACE_DEBUG_CHANNELS_END
+#endif
 
 #ifndef SB_BUS_NO_WRAP
 #define sd_bus_add_object wrap_bus_add_object
