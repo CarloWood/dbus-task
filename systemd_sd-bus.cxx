@@ -7,6 +7,8 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <mutex>
 
+#if CW_DEBUG
+
 OneThreadAtATime dbus_critical_area;
 
 #define SD_BUS_DEFINE_VOID(R, N, P, ...) \
@@ -44,6 +46,8 @@ OneThreadAtATime dbus_critical_area;
 SD_BUS_FOREACH_VOID_FUNCTION(SD_BUS_DEFINE_VOID)
 SD_BUS_FOREACH_NON_VOID_FUNCTION(SD_BUS_DEFINE_NON_VOID)
 SD_BUS_FOREACH_ELIPSIS_FUNCTION(SD_BUS_DEFINE_ELIPSIS)
+
+#endif // CW_DEBUG
 
 #if defined(CWDEBUG) && !defined(DOXYGEN)
 NAMESPACE_DEBUG_CHANNELS_START

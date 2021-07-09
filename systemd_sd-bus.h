@@ -8,6 +8,8 @@ extern channel_ct dbus;
 NAMESPACE_DEBUG_CHANNELS_END
 #endif
 
+#if CW_DEBUG
+
 #ifndef SB_BUS_NO_WRAP
 #define sd_bus_add_object wrap_bus_add_object
 #define sd_bus_call_async wrap_bus_call_async
@@ -131,3 +133,4 @@ SD_BUS_FOREACH_ELIPSIS_FUNCTION(SD_BUS_DECLARE)
 
 #include "OneThreadAtATime.h"
 extern OneThreadAtATime dbus_critical_area;
+#endif
