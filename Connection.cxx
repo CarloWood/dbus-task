@@ -47,7 +47,7 @@ void Connection::read_from_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_
   // We should not stop the input device because that can be interpreted as that we're
   // done with the socket, leading to, for example, program termination.
   //
-  // Wake up the DBusConnection task - also if it waiting for request_name_callback.
+  // Wake up the DBusConnection task - also if it is waiting for request_name_callback.
   if (!m_handle_io->signal(task::DBusHandleIO::have_dbus_io))
     // If signal returned false then the task did not wake up, possibly
     // because it is halted due to a full threadpool queue. In that case
