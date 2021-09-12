@@ -13,11 +13,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # DEPENDENCIES
 #
 
+include(AICxxProject)
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(Libsystemd libsystemd REQUIRED IMPORTED_TARGET)
 find_package(magic_enum REQUIRED)
-
-include(AICxxProject)
 
 #==============================================================================
 # BUILD PROJECT

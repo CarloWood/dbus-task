@@ -56,7 +56,7 @@ class Error : protected ErrorConst
 //  Error(int error, char const* format, ...) { m_error = SD_BUS_ERROR_NULL; va_list ap; va_start(ap, format); sd_bus_error_set_errnofv(&m_error, error, format, ap); va_end(ap); }
 //  int get_errno() const { return sd_bus_error_get_errno(&m_error); }
 
-  // If you want to pass a char const* string _constant_, please pass them to SD_BUS_ERROR_MAKE_CONST and use ErrorConst.
+  // If you want to pass a char const* string literal, please pass them to SD_BUS_ERROR_MAKE_CONST and use ErrorConst.
   explicit Error(std::string const& name) { m_error = SD_BUS_ERROR_NULL; sd_bus_error_set(&m_error, name.c_str(), nullptr); }
   explicit Error(std::string const& name, std::string const& message) { m_error = SD_BUS_ERROR_NULL; sd_bus_error_set(&m_error, name.c_str(), message.c_str()); }
   // Construct an Error object from a sd_bus_error*. This makes a copy.
