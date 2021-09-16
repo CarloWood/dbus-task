@@ -123,7 +123,7 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   static state_type constexpr state_end = DBusConnection_wait_for_request_name_result + 1;
 
   /// Construct a DBusConnection object.
-  DBusConnection(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
+  DBusConnection(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusConnection() [" << (void*)this << "]");
   }

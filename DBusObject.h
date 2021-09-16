@@ -39,7 +39,7 @@ class DBusObject : public AIStatefulTask
   /// One beyond the largest state of this task.
   static state_type constexpr state_end = DBusObject_done + 1;
 
-  DBusObject(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
+  DBusObject(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusObject() [" << (void*)this << "]");
   }

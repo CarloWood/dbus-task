@@ -39,7 +39,7 @@ class DBusMethodCall : public AIStatefulTask
   /// One beyond the largest state of this task.
   static state_type constexpr state_end = DBusMethodCall_done + 1;
 
-  DBusMethodCall(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
+  DBusMethodCall(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusMethodCall() [" << (void*)this << "]");
   }

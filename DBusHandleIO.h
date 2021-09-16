@@ -32,7 +32,7 @@ class DBusHandleIO : public AIStatefulTask
   /// One beyond the largest state of this task.
   static state_type constexpr state_end = DBusHandleIO_done + 1;
 
-  DBusHandleIO(CWDEBUG_ONLY(bool debug = false)) CWDEBUG_ONLY(: AIStatefulTask(debug))
+  DBusHandleIO(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))
   {
     DoutEntering(dc::statefultask(mSMDebug), "DBusHandleIO() [" << (void*)this << "]");
     m_connection = evio::create<dbus::Connection>(this);
