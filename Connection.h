@@ -109,10 +109,10 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
   HandleIOResult handle_dbus_io();
 
  protected:
-  virtual void read_from_fd(int& allow_deletion_count, int fd);
-  virtual void write_to_fd(int& allow_deletion_count, int fd);
-  virtual void hup(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "dbus::Connection::hup"); }
-  virtual void err(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) { DoutEntering(dc::notice, "dbus::Connection::err"); close(); }
+  void read_from_fd(int& allow_deletion_count, int fd) override;
+  void write_to_fd(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) override;
+  void hup(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) override { DoutEntering(dc::notice, "dbus::Connection::hup"); }
+  void err(int& UNUSED_ARG(allow_deletion_count), int UNUSED_ARG(fd)) override { DoutEntering(dc::notice, "dbus::Connection::err"); close(); }
 };
 
 } // namespace dbus
