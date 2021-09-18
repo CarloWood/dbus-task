@@ -20,7 +20,7 @@ class DBusConnectionBrokerKey : public statefultask::BrokerKey, public task::DBu
     task::DBusConnectionData::initialize(dbus_connection);
   }
 
-  unique_ptr copy() const final
+  unique_ptr canonical_copy() const final
   {
     return unique_ptr(new DBusConnectionBrokerKey(*this));
   }
