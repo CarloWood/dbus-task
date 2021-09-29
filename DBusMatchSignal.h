@@ -36,7 +36,7 @@ class DBusMatchSignal : public AIStatefulTask
 
  public:
   /// One beyond the largest state of this task.
-  static state_type constexpr state_end = DBusMatchSignal_done + 1;
+  static constexpr state_type state_end = DBusMatchSignal_done + 1;
 
   DBusMatchSignal(boost::intrusive_ptr<task::Broker<task::DBusConnection>> broker COMMA_CWDEBUG_ONLY(bool debug = false)) :
     CWDEBUG_ONLY(AIStatefulTask(debug),) m_broker(std::move(broker))

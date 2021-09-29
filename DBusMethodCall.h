@@ -37,7 +37,7 @@ class DBusMethodCall : public AIStatefulTask
 
  public:
   /// One beyond the largest state of this task.
-  static state_type constexpr state_end = DBusMethodCall_done + 1;
+  static constexpr state_type state_end = DBusMethodCall_done + 1;
 
   DBusMethodCall(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))
   {

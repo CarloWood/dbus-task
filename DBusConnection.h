@@ -120,7 +120,7 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
 
  public:
   /// One beyond the largest state of this task.
-  static state_type constexpr state_end = DBusConnection_wait_for_request_name_result + 1;
+  static constexpr state_type state_end = DBusConnection_wait_for_request_name_result + 1;
 
   /// Construct a DBusConnection object.
   DBusConnection(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))

@@ -30,7 +30,7 @@ class DBusHandleIO : public AIStatefulTask
 
  public:
   /// One beyond the largest state of this task.
-  static state_type constexpr state_end = DBusHandleIO_done + 1;
+  static constexpr state_type state_end = DBusHandleIO_done + 1;
 
   DBusHandleIO(CWDEBUG_ONLY(bool debug = false)) : AIStatefulTask(CWDEBUG_ONLY(debug))
   {
