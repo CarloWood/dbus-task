@@ -4,9 +4,6 @@
 #include "evio/RawOutputDevice.h"
 #include "systemd_sd-bus.h"
 #include "debug.h"
-#ifdef CWDEBUG
-#include "cwds/tracked_intrusive_ptr.h"
-#endif
 
 namespace task {
 class DBusConnection;

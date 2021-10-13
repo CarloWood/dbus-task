@@ -5,9 +5,6 @@
 #include "statefultask/AIStatefulTask.h"
 #include "debug.h"
 #include <iomanip>
-#ifdef CWDEBUG
-#include "cwds/tracked_intrusive_ptr.h"
-#endif
 
 namespace task {
 
