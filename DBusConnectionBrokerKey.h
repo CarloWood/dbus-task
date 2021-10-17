@@ -31,10 +31,12 @@ class DBusConnectionBrokerKey : public statefultask::BrokerKey, public task::DBu
     return task::DBusConnectionData::operator==(data);
   }
 
+#ifdef CWDEBUG
   void print_on(std::ostream& os) const final
   {
     task::DBusConnectionData::print_on(os);
   }
+#endif
 };
 
 } // namespace dbus
