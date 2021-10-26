@@ -384,8 +384,7 @@ class Message : public MessageRead
 
   // Append a std::vector or std::array (must be contiguous memory!)
   // value_type must be one of the types for which get_type is specialized (see above; i.e. do not use 'int').
-  //FIXME: use std::contiguous_iterator<InputIt> once we use C++20.
-  template <typename InputIt>
+  template<std::contiguous_iterator InputIt>
   Message& append(InputIt first, InputIt last)
   {
     using value_type = typename InputIt::value_type;
