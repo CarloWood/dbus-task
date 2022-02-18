@@ -1,7 +1,17 @@
 #include "sys.h"
 #include "Errors.h"
+
 #include <magic_enum.hpp>
 #include <iostream>
+
+// Specialization because the enum values are larger than MAGIC_ENUM_RANGE_MAX (128).
+// See https://github.com/Neargye/magic_enum/blob/master/doc/limitations.md
+template<>
+struct magic_enum::customize::enum_range<dbus::errors::System::Error::Errors>
+{
+  static constexpr int min = 1;
+  static constexpr int max = dbus::errors::System::Error::SE_MAGIC_ENUM_RANGE_MAX;
+};
 
 namespace dbus::errors {
 namespace System::Error {

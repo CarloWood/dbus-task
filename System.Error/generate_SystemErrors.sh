@@ -5,4 +5,5 @@ echo | gcc -c - -include /usr/include/errno.h -E -dMM | grep '#define E' |\
   sed -e 's/^#define[[:space:]]*\([^[:space:]]*\)[[:space:]].*/  SE_\1 = \1,/' |\
   sort -u | gcc -c - -include /usr/include/errno.h -E -P | grep '^  SE_' |\
   sed -r -e 's/(.*) = ([0-9]*)/\2 : \1 = \2/' | sort -n | sed -e 's/.*://' |\
-  sed -r -e 's%(.*) = 129,%//\1 = 129,        // magic_enum has problems with the value 129, see https://github.com/Neargye/magic_enum/issues/136.%' >> SystemErrors.h
+  egrep -v '(SE_EWOULDBLOCK|SE_EDEADLOCK|SE_EOPNOTSUPP)' >> SystemErrors.h               # magic_enum can't deal with aliases, so remove them.
+echo '   SE_MAGIC_ENUM_RANGE_MAX' >> SystemErrors.h
