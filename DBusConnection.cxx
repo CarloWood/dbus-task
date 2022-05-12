@@ -16,8 +16,7 @@ char const* DBusConnection::state_str_impl(state_type run_state) const
     AI_CASE_RETURN(DBusConnection_wait_for_request_name_result_wait_for_lock);
     AI_CASE_RETURN(DBusConnection_wait_for_request_name_result);
   }
-  ASSERT(false);
-  return "UNKNOWN STATE";
+  AI_NEVER_REACHED;
 }
 
 void DBusConnection::initialize_impl()
