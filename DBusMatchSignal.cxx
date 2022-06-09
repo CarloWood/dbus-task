@@ -6,6 +6,17 @@ namespace utils { using namespace threading; }
 
 namespace task {
 
+char const* DBusMatchSignal::condition_str_impl(condition_type condition) const
+{
+  switch (condition)
+  {
+    AI_CASE_RETURN(connection_set_up);
+    AI_CASE_RETURN(connection_locked);
+    AI_CASE_RETURN(have_match_callback);
+  }
+  return direct_base_type::condition_str_impl(condition);
+}
+
 char const* DBusMatchSignal::state_str_impl(state_type run_state) const
 {
   switch(run_state)

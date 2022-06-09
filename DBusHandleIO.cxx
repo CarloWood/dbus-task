@@ -4,6 +4,16 @@
 namespace utils { using namespace threading; }
 namespace task {
 
+char const* DBusHandleIO::condition_str_impl(condition_type condition) const
+{
+  switch (condition)
+  {
+    AI_CASE_RETURN(have_dbus_io);
+    AI_CASE_RETURN(connection_locked);
+  }
+  return direct_base_type::condition_str_impl(condition);
+}
+
 char const* DBusHandleIO::state_str_impl(state_type run_state) const
 {
   switch(run_state)

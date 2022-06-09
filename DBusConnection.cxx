@@ -5,6 +5,16 @@
 
 namespace task {
 
+char const* DBusConnection::condition_str_impl(condition_type condition) const
+{
+  switch (condition)
+  {
+    AI_CASE_RETURN(request_name_callback);
+    AI_CASE_RETURN(connection_locked);
+  }
+  return direct_base_type::condition_str_impl(condition);
+}
+
 char const* DBusConnection::state_str_impl(state_type run_state) const
 {
   switch(run_state)

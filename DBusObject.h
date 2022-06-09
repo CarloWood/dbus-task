@@ -104,16 +104,11 @@ class DBusObject : public AIStatefulTask
     DoutEntering(dc::statefultask(mSMDebug), "~DBusObject() [" << (void*)this << "]");
   }
 
-  /// Implemenation of state_str for run states.
+  // Implementation of virtual functions of AIStatefulTask.
+  char const* condition_str_impl(condition_type condition) const override;
   char const* state_str_impl(state_type run_state) const override;
-
-  /// Run bs_initialize.
   void initialize_impl() override;
-
-  /// Handle mRunState.
   void multiplex_impl(state_type run_state) override;
-
-  /// Called for base state @ref bs_abort.
   void abort_impl() override;
 };
 

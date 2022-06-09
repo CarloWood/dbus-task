@@ -184,19 +184,12 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
     m_handle_io->obtained_lock();
   }
 
-  /// Implemenation of state_str for run states.
+  // Implementation of virtual functions of AIStatefulTask.
+  char const* condition_str_impl(condition_type condition) const override;
   char const* state_str_impl(state_type run_state) const override;
-
-  /// Run bs_initialize.
   void initialize_impl() override;
-
-  /// Handle mRunState.
   void multiplex_impl(state_type run_state) override;
-
-  /// Called for base state @ref bs_finish and bs_abort.
   void finish_impl() override;
-
-  /// Called for base state bs_abort.
   void abort_impl() override;
 
  private:
