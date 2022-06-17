@@ -21,13 +21,13 @@ class Connection : public evio::RawInputDevice, public evio::RawOutputDevice
   task::DBusHandleIO* m_handle_io;
   bool m_unlocked_in_callback;          // Set to true when m_mutex was unlocked while inside sd_bus_process.
 
-#ifdef CWDEBUG
+#if CW_DEBUG
   uint64_t m_magic = 0x12345678abcdef99;
 #endif
 
  public:
   Connection(task::DBusHandleIO* handle_io) : m_handle_io(handle_io) { }
-  ~Connection() { Debug(m_magic = 0); }
+  ~Connection() { DEBUG_ONLY(m_magic = 0); }
 
   void connect_user(std::string description = "Connection")
   {

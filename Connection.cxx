@@ -8,9 +8,7 @@ namespace dbus {
 Connection::HandleIOResult Connection::handle_dbus_io()
 {
   DoutEntering(dc::notice|continued_cf, "Connection::handle_dbus_io() = ");
-#ifdef CWDEBUG
   ASSERT(m_magic == 0x12345678abcdef99);
-#endif
   int ret;
   do
   {
