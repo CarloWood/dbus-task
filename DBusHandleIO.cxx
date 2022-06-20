@@ -26,6 +26,11 @@ char const* DBusHandleIO::state_str_impl(state_type run_state) const
   AI_NEVER_REACHED;
 }
 
+char const* DBusHandleIO::task_name_impl() const
+{
+  return "DBusHandleIO";
+}
+
 void DBusHandleIO::multiplex_impl(state_type run_state)
 {
   switch (run_state)

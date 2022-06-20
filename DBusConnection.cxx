@@ -29,6 +29,11 @@ char const* DBusConnection::state_str_impl(state_type run_state) const
   AI_NEVER_REACHED;
 }
 
+char const* DBusConnection::task_name_impl() const
+{
+  return "DBusConnection";
+}
+
 void DBusConnection::initialize_impl()
 {
   DoutEntering(dc::statefultask(mSMDebug), "DBusConnection::initialize_impl() [" << (void*)this << "]");
