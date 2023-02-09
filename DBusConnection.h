@@ -3,6 +3,7 @@
 #include "Interface.h"
 #include "DBusHandleIO.h"
 #include "statefultask/AIStatefulTask.h"
+#include "block-task/BlockingTaskMutex.h"
 #include "debug.h"
 #include <iomanip>
 
@@ -128,11 +129,6 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
   /// Return the service name that was requested with request_service_name.
   std::string const& service_name() const { return m_service_name; }
 
-  void lock_blocking(AIStatefulTask* task) const
-  {
-    m_handle_io->lock_blocking(task);
-  }
-
   bool lock(AIStatefulTask* task, condition_type condition) const
   {
     return m_handle_io->lock(task, condition);
@@ -202,7 +198,16 @@ class DBusConnection : public AIStatefulTask, public DBusConnectionData
 class DBusLock : public statefultask::AdoptLock
 {
  public:
-  DBusLock(boost::intrusive_ptr<DBusConnection const> const& connection) : statefultask::AdoptLock(connection->mutex()) { }
+  DBusLock(boost::intrusive_ptr<DBusConnection const> const& connection, bool block = false
+      COMMA_CWDEBUG_ONLY(bool debug = false)) : statefultask::AdoptLock(connection->mutex())
+  {
+    if (block)
+    {
+      auto blocking_task_mutex = statefultask::create<task::BlockingTaskMutex>(CWDEBUG_ONLY(debug));
+      blocking_task_mutex->set_mutex(connection->mutex());
+      blocking_task_mutex->lock();
+    }
+  }
 };
 
 } // namespace task

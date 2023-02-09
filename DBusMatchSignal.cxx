@@ -97,8 +97,8 @@ void DBusMatchSignal::abort_impl()
 {
   if (m_slot)
   {
-    m_dbus_connection->lock_blocking(this);
-    DBusLock lock(m_dbus_connection);
+    // Scoped, blocking lock.
+    DBusLock lock(m_dbus_connection, true COMMA_CWDEBUG_ONLY(mSMDebug));
     // Make sure DBusMatchSignal::s_*_callback is no longer called.
     sd_bus_slot_unref(m_slot);
     m_slot = nullptr;

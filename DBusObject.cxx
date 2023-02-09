@@ -78,8 +78,8 @@ void DBusObject::abort_impl()
   DoutEntering(dc::statefultask(mSMDebug), "DBusObject::abort_impl() [" << this << "]");
   if (m_slot)
   {
-    m_dbus_connection->lock_blocking(this);
-    DBusLock lock(m_dbus_connection);
+    // Scoped, blocking lock.
+    DBusLock lock(m_dbus_connection, true COMMA_CWDEBUG_ONLY(mSMDebug));
     // Make sure DBusObject::s_*_callback is no longer called.
     Dout(dc::statefultask(mSMDebug), "Calling sd_bus_slot_unref(m_slot) and setting m_slot to nullptr (making sure the callback is no longer called)");
     sd_bus_slot_unref(m_slot);

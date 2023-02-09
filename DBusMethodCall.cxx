@@ -90,8 +90,8 @@ void DBusMethodCall::abort_impl()
   // Therefore do that here.
   if (AI_UNLIKELY(m_dbus_connection))     // Could be aborted before it even got the chance to run DBusMethodCall_start.
   {
-    m_dbus_connection->lock_blocking(this);
-    DBusLock lock(m_dbus_connection);
+    // Scoped, blocking lock.
+    DBusLock lock(m_dbus_connection, true COMMA_CWDEBUG_ONLY(mSMDebug));
     m_message.reset();
   }
 }

@@ -38,11 +38,6 @@ class DBusHandleIO : public AIStatefulTask
     m_connection = evio::create<dbus::Connection>(this);
   }
 
-  void lock_blocking(AIStatefulTask* task) const
-  {
-    m_mutex.lock_blocking(task);
-  }
-
   bool lock(AIStatefulTask* task, condition_type condition) const
   {
     return m_mutex.lock(task, condition);
