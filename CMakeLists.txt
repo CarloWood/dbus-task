@@ -5,10 +5,6 @@ project(dbus-task
   LANGUAGES CXX
 )
 
-# Require support for C++17.
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 #==============================================================================
 # DEPENDENCIES
 #
@@ -25,6 +21,9 @@ find_package(magic_enum REQUIRED)
 
 # This project is an OBJECT-library, used by other git submodules and the main project.
 add_library(dbus-task_ObjLib OBJECT)
+
+# Require at least support for C++17.
+target_compile_features(dbus-task_ObjLib PUBLIC cxx_std_17)
 
 # Set SOURCE_DIR to the current directory.
 set_property(
