@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12...3.16)
+cmake_minimum_required(VERSION 3.15...3.30)
 
 project(dbus-task
   DESCRIPTION "AIStatefulTask submodule - D-Bus support"
@@ -24,12 +24,6 @@ add_library(dbus-task_ObjLib OBJECT)
 
 # Require at least support for C++17.
 target_compile_features(dbus-task_ObjLib PUBLIC cxx_std_17)
-
-# Set SOURCE_DIR to the current directory.
-set_property(
-  TARGET dbus-task_ObjLib
-  PROPERTY SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
-)
 
 # The list of source files.
 target_sources(dbus-task_ObjLib
