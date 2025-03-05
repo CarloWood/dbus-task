@@ -8,7 +8,7 @@ namespace dbus::errors {
 namespace org::sdbuscpp::Concatenator::Error {
 
 // There is only one error.
-enum Errors
+enum Errors : unsigned char
 {
   NoNumbers = 1,
 };

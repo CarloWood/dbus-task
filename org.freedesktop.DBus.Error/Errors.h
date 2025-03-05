@@ -8,7 +8,7 @@ namespace dbus::errors {
 namespace org::freedesktop::DBus::Error {
 
 // Standard errors defined for org.freedesktop.DBus.Error.*
-enum Errors
+enum Errors : unsigned char
 {
   Failed = 1,
   NoMemory,
