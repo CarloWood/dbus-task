@@ -13,7 +13,6 @@ include(AICxxProject)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(Libsystemd libsystemd REQUIRED IMPORTED_TARGET)
-find_package(magic_enum REQUIRED)
 
 #==============================================================================
 # BUILD PROJECT
@@ -65,7 +64,6 @@ target_link_libraries(dbus-task_ObjLib
   PUBLIC
     AICxx::statefultask
     farmhash::farmhash
-    magic_enum::magic_enum
     PkgConfig::Libsystemd
 )
 

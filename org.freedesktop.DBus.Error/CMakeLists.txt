@@ -22,7 +22,7 @@ target_compile_features(DBus_OrgFreedesktopDBusError_ObjLib
 
 target_link_libraries(DBus_OrgFreedesktopDBusError_ObjLib
   PUBLIC
-    magic_enum::magic_enum
+    enchantum::enchantum
 )
 
 # Create an ALIAS target.

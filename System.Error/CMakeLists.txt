@@ -25,7 +25,7 @@ target_compile_features(DBus_SystemErrors_ObjLib
 
 target_link_libraries(DBus_SystemErrors_ObjLib
   PUBLIC
-    magic_enum::magic_enum
+    enchantum::enchantum
 )
 
 # Create an ALIAS target.
